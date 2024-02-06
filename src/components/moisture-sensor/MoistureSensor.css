@@ -1,0 +1,8 @@
+.moisture-sensor {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    align-content: center;
+    margin: 5px 0px 5px 0px;
+}
