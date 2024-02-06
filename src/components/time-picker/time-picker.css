@@ -1,0 +1,17 @@
+.time-picker-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center; /* Centraliza horizontalmente os elementos */
+}
+
+.logo-container {
+  margin-bottom: 10px; /* Adiciona margem abaixo do logo */
+}
+
+.time-picker {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  margin-top: 10px; /* Adiciona margem acima do TimePicker */
+}

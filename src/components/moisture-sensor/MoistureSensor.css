@@ -1,8 +1,32 @@
-.moisture-sensor {
+.moisture-sensor-container {
+    display: flex;
+    justify-content: center; /* Centraliza horizontalmente os elementos */
+    align-items: center; /* Centraliza verticalmente os elementos */
+    flex-direction: column; /* Coloca os elementos um em cima do outro */
+  }
+  
+  .soil-status {
+    padding: 5px;
+    font-weight: bold;
+    color: #333;
+    border: 1px solid #333;
+    border-radius: 5px;
+    text-align: center;
+    margin: 5px; /* Adiciona margem entre as divs */
+    display: none;
+  }
+  
+  .soil-status.moist,
+  .soil-status.dry {
+    display: block;
+  }
+  
+  .moisture-sensor {
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: center;
     align-content: center;
     margin: 5px 0px 5px 0px;
-}
+  }
+  

@@ -8,20 +8,27 @@ const MoistureSensor = ({ sensorData }) => {
     // console.log("SENSOR: ", sensorData);
   }, [sensorData]);
 
+  const isSoilMoist = sensorData > 70;
+
   return (
-    <div className='moisture-sensor'>
-      <LinearGauge
-        className="gauge-element"
-        value={sensorData} // Utilizando sensorData diretamente como valor da umidade
-      >
-        <Title text="Umidade (%)" style={{ fontSize: '16px', color: '#ADD8E6' }} >
-          <Font size={12} />
-        </Title>
-        <Geometry orientation="vertical" />
-        <Scale startValue={0} endValue={100} tickInterval={10} />
-        <RangeContainer backgroundColor="#CACACA" />
-        <ValueIndicator type="rhombus" color="#A4DDED" />
-      </LinearGauge>
+    <div className='moisture-sensor-container'>
+      <div className='moisture-sensor'>
+        <LinearGauge
+          className="gauge-element"
+          value={sensorData}
+        >
+          <Title text="Umidade (%)" style={{ fontSize: '16px', color: '#ADD8E6' }} >
+            <Font size={12} />
+          </Title>
+          <Geometry orientation="vertical" />
+          <Scale startValue={0} endValue={100} tickInterval={10} />
+          <RangeContainer backgroundColor="#CACACA" />
+          <ValueIndicator type="rhombus" color="#A4DDED" />
+        </LinearGauge>
+      </div>
+      <div className={`soil-status ${isSoilMoist ? 'moist' : 'dry'}`}>
+        {isSoilMoist ? 'Solo Úmido' : 'Solo Seco'}
+      </div>
     </div>
   );
 };

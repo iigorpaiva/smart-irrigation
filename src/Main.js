@@ -1,12 +1,10 @@
-// App.js
 import React, { Component } from 'react';
-import ToggleButton from 'react-toggle-button';
-import logo from './logo.svg';
 import MoistureSensor from './components/moisture-sensor/MoistureSensor';
 import "./style.css"
 import Card from './shared/Card/Card';
 import Logo from './components/logo/logo';
 import IrrigationMode from './components/irrigation-mode/irrigation-mode';
+import TimePickerComponent from './components/time-picker/time-picker';
 
 class App extends Component {
   constructor(props) {
@@ -76,7 +74,7 @@ class App extends Component {
         <div className="main">
           <div className="container row">
             <div className="col-md-12">
-              <Card title="Logo" body={<Logo />} />
+              <Card title="Agendamento" body={<TimePickerComponent />} />
             </div>
             <div className="col-md-12">
               <Card title="Umidade do Solo" body={<MoistureSensor sensorData={sensorData} />} />
