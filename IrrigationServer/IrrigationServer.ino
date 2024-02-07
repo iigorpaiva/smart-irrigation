@@ -9,6 +9,7 @@
 #define WIFI_SSID "brisa-2648486-EXT"
 #define WIFI_PASSWORD "1hrgpa3r"
 #define LED_BUILTIN 26
+#define AOUT_PIN 33
 
 WiFiServer server(80);
 Application app;
@@ -17,38 +18,6 @@ bool ledOn;
 
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, "pool.ntp.org");
-
-// Função para gerar valores de umidade aleatórios (simulando o sensor)
-int generateRandomMoisture() {
-  return random(0, 101);  // Gera valores entre 0 e 100
-}
-
-void readLed(Request &req, Response &res) {
-  res.print(ledOn);
-}
-
-void updateLed(Request &req, Response &res) {
-  ledOn = (req.read() != '0');
-  digitalWrite(LED_BUILTIN, ledOn);
-  return readLed(req, res);
-}
-
-void getTime(Request &req, Response &res) {
-  timeClient.update();
-  res.print(timeClient.getFormattedTime());
-}
-
-void getWeather(Request &req, Response &res) {
-  // Lógica para obter a previsão do tempo de algum lugar
-  String weatherData = "Sua Previsão do Tempo Aqui";
-  res.print(weatherData);
-}
-
-// Rota para obter valores simulados de umidade
-void getMoisture(Request &req, Response &res) {
-  int simulatedMoisture = generateRandomMoisture();
-  res.print(simulatedMoisture);
-}
 
 void setup() {
   pinMode(LED_BUILTIN, OUTPUT);
@@ -64,9 +33,7 @@ void setup() {
 
   app.get("/led", &readLed);
   app.put("/led", &updateLed);
-  app.get("/time", &getTime);          // Nova rota para obter a hora
-  app.get("/weather", &getWeather);    // Nova rota para obter a previsão do tempo
-  app.get("/moisture", &getMoisture);  // Nova rota para obter valores simulados de umidade
+  app.get("/moisture", &getMoisture);  // Nova rota para obter valores do sensor de umidade
 
   app.use(staticFiles());
 
@@ -86,4 +53,59 @@ void loop() {
   if (client.connected()) {
     app.process(&client);
   }
+
+    // Imprime o valor do sensor a cada segundo
+  unsigned long currentMillis = millis();
+  static unsigned long previousMillis = 0;
+  if (currentMillis - previousMillis >= 1000) {
+    previousMillis = currentMillis;
+
+    int sensorMoisture = readMoistureSensor();
+    Serial.println(sensorMoisture);
+
+  }
+
+    // int sensorMoisture = readMoistureSensor();
+    // Serial.println(sensorMoisture);
+    // delay(100);
 }
+
+// ------------------------------------------ Funcoes ------------------------------------
+
+
+// Rota para obter valores do sensor de umidade
+void getMoisture(Request &req, Response &res) {
+  int sensorMoisture = readMoistureSensor();
+  res.print(sensorMoisture);
+}
+
+// // Função para ler valores do sensor de umidade
+int readMoistureSensor() {
+  // Leitura analógica do sensor de umidade
+  int sensorValue = analogRead(AOUT_PIN);
+
+  // Intervalo original do sensor
+  int sensorMin = 1126;
+  int sensorMax = 3055;
+
+  // Intervalo desejado (porcentagem)
+  int targetMin = 100;  // Invertido: agora representa 100% quando molhado
+  int targetMax = 0;    // Invertido: agora representa 0% quando seco
+
+  // Converta o valor lido para um intervalo de 0 a 100
+  int moisture = map(sensorValue, sensorMin, sensorMax, targetMin, targetMax);
+
+  return moisture;
+}
+
+
+void readLed(Request &req, Response &res) {
+  res.print(ledOn);
+}
+
+void updateLed(Request &req, Response &res) {
+  ledOn = (req.read() != '0');
+  digitalWrite(LED_BUILTIN, ledOn);
+  return readLed(req, res);
+}
+
