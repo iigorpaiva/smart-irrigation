@@ -19,17 +19,15 @@ bool ledOn;
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, "pool.ntp.org");
 
+unsigned long lastConnectionCheckTime = 0;
+const unsigned long connectionCheckInterval = 10000;  // Intervalo de verificação em milissegundos (10 segundos)
+
 void setup() {
   pinMode(LED_BUILTIN, OUTPUT);
   
   Serial.begin(115200);
 
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-  }
-  Serial.println(WiFi.localIP());
+  connectToWiFi();
 
   app.get("/led", &readLed);
   app.put("/led", &updateLed);
@@ -48,6 +46,19 @@ void setup() {
 }
 
 void loop() {
+
+  unsigned long currentMillisWifi = millis();
+
+  // Verificar e reconectar se necessário a cada 10 segundos
+  if (currentMillisWifi - lastConnectionCheckTime >= connectionCheckInterval) {
+    lastConnectionCheckTime = currentMillisWifi;
+
+    if (WiFi.status() != WL_CONNECTED) {
+      Serial.println("Conexão perdida. Tentando reconectar...");
+      connectToWiFi();
+    }
+  }
+
   WiFiClient client = server.available();
 
   if (client.connected()) {
@@ -55,15 +66,15 @@ void loop() {
   }
 
     // Imprime o valor do sensor a cada segundo
-  unsigned long currentMillis = millis();
-  static unsigned long previousMillis = 0;
-  if (currentMillis - previousMillis >= 1000) {
-    previousMillis = currentMillis;
+  // unsigned long currentMillis = millis();
+  // static unsigned long previousMillis = 0;
+  // if (currentMillis - previousMillis >= 1000) {
+  //   previousMillis = currentMillis;
 
-    int sensorMoisture = readMoistureSensor();
-    Serial.println(sensorMoisture);
+  //   int sensorMoisture = readMoistureSensor();
+  //   Serial.println(sensorMoisture);
 
-  }
+  // }
 
     // int sensorMoisture = readMoistureSensor();
     // Serial.println(sensorMoisture);
@@ -107,5 +118,24 @@ void updateLed(Request &req, Response &res) {
   ledOn = (req.read() != '0');
   digitalWrite(LED_BUILTIN, ledOn);
   return readLed(req, res);
+}
+
+void connectToWiFi() {
+  Serial.println("Conectando ao WiFi...");
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  
+  int attempts = 0;
+  while (WiFi.status() != WL_CONNECTED && attempts < 20) {
+    delay(500);
+    Serial.print(".");
+    attempts++;
+  }
+
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.println("\nConectado com sucesso ao WiFi");
+    Serial.println(WiFi.localIP());
+  } else {
+    Serial.println("\nFalha na conexão ao WiFi. Verifique suas credenciais.");
+  }
 }
 
