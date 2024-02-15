@@ -75,9 +75,12 @@ h4 {
 .main {
   display: flex;
   justify-content: center;
+  align-items: center; /* Adicionado para centralizar verticalmente */
   position: relative;
   width: 100vw;
   overflow: hidden;
+  padding-bottom: 20px; /* Ajuste o valor conforme necessário para dar espaço suficiente */
+  min-height: 100vh; /* Adicionado para garantir que ocupe pelo menos a altura total da tela */
 }
 
 .container {

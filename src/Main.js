@@ -2,9 +2,9 @@ import React, { Component } from 'react';
 import MoistureSensor from './components/moisture-sensor/MoistureSensor';
 import "./style.css"
 import Card from './shared/Card/Card';
-import Logo from './components/logo/logo';
 import IrrigationMode from './components/irrigation-mode/irrigation-mode';
 import TimePickerComponent from './components/time-picker/time-picker';
+import IrrigationChart from './components/chart/irrigation-chart';
 
 class App extends Component {
   constructor(props) {
@@ -25,7 +25,7 @@ class App extends Component {
   handleStateChange(ledOn) {
     this.setState({ updating: true });
 
-    fetch('/led', { method: 'PUT', body: ledOn ? '0' : '1', timeout: 1000 })
+    fetch('/mode', { method: 'PUT', body: ledOn ? '0' : '1', timeout: 1000 })
       .then(response => response.text())
       .then(state => this.setLedState(state))
       .catch(error => {
@@ -45,7 +45,7 @@ class App extends Component {
   };
 
   checkLedStatus = () => {
-    fetch('/led')
+    fetch('/mode')
       .then(response => response.text())
       .then(state => this.setLedState(state))
       .catch(error => {
@@ -72,16 +72,11 @@ class App extends Component {
     return (
       <div>
         <div className="main">
-          <div className="container row">
-            <div className="col-md-12">
-              <Card title="Agendamento" body={<TimePickerComponent />} />
-            </div>
-            <div className="col-md-12">
-              <Card title="Umidade do Solo" body={<MoistureSensor sensorData={sensorData} />} />
-            </div>
-            <div className="col-md-12">
-              <Card title="Modo Irrigação" body={<IrrigationMode value={ledOn} onToggle={value => this.handleStateChange(value)} disabled={this.state.updating} />} />
-            </div>
+          <div className="container row card-container">
+            <Card title="Modo da Irrigação" body={<IrrigationMode value={ledOn} onToggle={value => this.handleStateChange(value)} disabled={this.state.updating} />} />
+            <Card title="Agendamento" body={<TimePickerComponent />} />
+            <Card title="Umidade do Solo" body={<MoistureSensor sensorData={sensorData} />} />
+            <Card title="Monitoramento" body={<IrrigationChart />} />
           </div>
         </div>
       </div>

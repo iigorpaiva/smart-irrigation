@@ -1,4 +1,12 @@
-.card {
+/* Card.css */
+.card-container {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr); /* Duas colunas por padrão */
+    gap: 20px;
+  }
+  
+  .card {
+    box-sizing: border-box;
     position: relative;
     width: auto;
     height: 100%; /* Adicionando a propriedade para garantir altura total */
@@ -7,11 +15,19 @@
     box-shadow: var(--box-shadow);
     margin-bottom: 10px;
     overflow: hidden;
-}
-
-.separator {
+  }
+  
+  .separator {
     background: var(--primary);
     width: 100%;
     height: 2px;
     padding-right: 5px;
-}
+  }
+  
+  @media (max-width: 768px) {
+    .card-container {
+      grid-template-columns: 1fr; /* Uma coluna quando a largura da tela for 768px ou menos */
+    }
+  }
+  
+  .card-container::after, .card-container::before{ display:none !important;}

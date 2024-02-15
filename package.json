@@ -6,9 +6,11 @@
     "@testing-library/jest-dom": "^5.17.0",
     "@testing-library/react": "^13.4.0",
     "@testing-library/user-event": "^13.5.0",
+    "chart.js": "^4.4.1",
     "devextreme-react": "^23.2.4",
     "rc-time-picker": "^3.7.3",
     "react": "^18.2.0",
+    "react-chartjs-2": "^5.2.0",
     "react-dom": "^18.2.0",
     "react-scripts": "5.0.1",
     "react-toggle-button": "^2.2.0",
@@ -43,7 +45,7 @@
   "devDependencies": {
     "awot-scripts": "^3.1.2"
   },
-  "proxy": "http://192.168.0.18",
+  "proxy": "http://192.168.0.20",
   "awot-static": {
     "sources": "./build",
     "indexFile": "index.html",

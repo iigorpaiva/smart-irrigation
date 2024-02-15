@@ -6,4 +6,15 @@
     align-content: center;
     margin: 5px 0px 5px 0px;
     height: 250px;
-}
+  }
+  
+  /* Estilo para o botão de alternância específico */
+  .react-toggle-button .react-toggle-thumb {
+    width: 80px; /* Largura desejada */
+    height: 80px; /* Altura desejada */
+  }
+  
+  .react-toggle-button .react-toggle-track {
+    width: 120px; /* Largura desejada */
+  }
+  

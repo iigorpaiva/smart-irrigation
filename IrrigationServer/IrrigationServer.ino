@@ -8,13 +8,13 @@
 
 #define WIFI_SSID "brisa-2648486-EXT"
 #define WIFI_PASSWORD "1hrgpa3r"
-#define LED_BUILTIN 26
+#define MODE_BUILTIN 26
 #define AOUT_PIN 33
 
 WiFiServer server(80);
 Application app;
 
-bool ledOn;
+bool modeOn;
 
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, "pool.ntp.org");
@@ -23,15 +23,17 @@ unsigned long lastConnectionCheckTime = 0;
 const unsigned long connectionCheckInterval = 10000;  // Intervalo de verificação em milissegundos (10 segundos)
 
 void setup() {
-  pinMode(LED_BUILTIN, OUTPUT);
+  pinMode(MODE_BUILTIN, OUTPUT);
   
   Serial.begin(115200);
 
   connectToWiFi();
 
-  app.get("/led", &readLed);
-  app.put("/led", &updateLed);
+  app.get("/mode", &readMode);
+  app.put("/mode", &updateMode);
   app.get("/moisture", &getMoisture);  // Nova rota para obter valores do sensor de umidade
+  // app.post("/schedule", &setSchedule);
+
 
   app.use(staticFiles());
 
@@ -110,14 +112,14 @@ int readMoistureSensor() {
 }
 
 
-void readLed(Request &req, Response &res) {
-  res.print(ledOn);
+void readMode(Request &req, Response &res) {
+  res.print(modeOn);
 }
 
-void updateLed(Request &req, Response &res) {
-  ledOn = (req.read() != '0');
-  digitalWrite(LED_BUILTIN, ledOn);
-  return readLed(req, res);
+void updateMode(Request &req, Response &res) {
+  modeOn = (req.read() != '0');
+  digitalWrite(MODE_BUILTIN, modeOn);
+  return readMode(req, res);
 }
 
 void connectToWiFi() {
