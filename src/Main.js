@@ -5,6 +5,7 @@ import Card from './shared/Card/Card';
 import IrrigationMode from './components/irrigation-mode/irrigation-mode';
 import TimePickerComponent from './components/time-picker/time-picker';
 import IrrigationChart from './components/chart/irrigation-chart';
+import HumidityChart from './components/chart/irrigation-chart';
 
 class App extends Component {
   constructor(props) {
@@ -76,7 +77,7 @@ class App extends Component {
             <Card title="Modo da Irrigação" body={<IrrigationMode value={ledOn} onToggle={value => this.handleStateChange(value)} disabled={this.state.updating} />} />
             <Card title="Agendamento" body={<TimePickerComponent />} />
             <Card title="Umidade do Solo" body={<MoistureSensor sensorData={sensorData} />} />
-            <Card title="Monitoramento" body={<IrrigationChart />} />
+            <Card title="Monitoramento" body={<HumidityChart />} />
           </div>
         </div>
       </div>

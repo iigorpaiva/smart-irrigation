@@ -28,7 +28,7 @@ const HumidityChart = () => {
         {
           type: "time",
           time: {
-            value: "hour",  // Renomeado de "unit" para "value"
+            unit: "hour",
             displayFormats: {
               hour: "HH:mm",
             },
