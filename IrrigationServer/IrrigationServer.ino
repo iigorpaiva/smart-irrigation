@@ -5,6 +5,8 @@
 #include "StaticFiles.h"
 #include <NTPClient.h>
 #include <WiFiUdp.h>
+#include <vector>
+#include <ArduinoJson.h>
 
 #define WIFI_SSID "brisa-2648486-EXT"
 #define WIFI_PASSWORD "1hrgpa3r"
@@ -22,9 +24,13 @@ NTPClient timeClient(ntpUDP, "pool.ntp.org");
 unsigned long lastConnectionCheckTime = 0;
 const unsigned long connectionCheckInterval = 10000;  // Intervalo de verificação em milissegundos (10 segundos)
 
+int programmedDuration;
+
+std::vector<String> scheduleListESP32;
+
 void setup() {
   pinMode(MODE_BUILTIN, OUTPUT);
-  
+
   Serial.begin(115200);
 
   connectToWiFi();
@@ -32,8 +38,10 @@ void setup() {
   app.get("/mode", &readMode);
   app.put("/mode", &updateMode);
   app.get("/moisture", &getMoisture);  // Nova rota para obter valores do sensor de umidade
-  // app.post("/schedule", &setSchedule);
-
+  app.post("/schedule", &setSchedule);
+  app.get("/duration", &readDuration);
+  app.post("/duration", &setDuration);
+  app.get("/schedule", &readSchedule);
 
   app.use(staticFiles());
 
@@ -48,15 +56,12 @@ void setup() {
 }
 
 void loop() {
-
   unsigned long currentMillisWifi = millis();
 
   // Verificar e reconectar se necessário a cada 10 segundos
-  if (currentMillisWifi - lastConnectionCheckTime >= connectionCheckInterval) {
-    lastConnectionCheckTime = currentMillisWifi;
-
-    if (WiFi.status() != WL_CONNECTED) {
-      Serial.println("Conexão perdida. Tentando reconectar...");
+  if (WiFi.status() != WL_CONNECTED) {
+    if (currentMillisWifi - lastConnectionCheckTime >= connectionCheckInterval) {
+      lastConnectionCheckTime = currentMillisWifi;
       connectToWiFi();
     }
   }
@@ -67,23 +72,60 @@ void loop() {
     app.process(&client);
   }
 
-    // Imprime o valor do sensor a cada segundo
-  // unsigned long currentMillis = millis();
-  // static unsigned long previousMillis = 0;
-  // if (currentMillis - previousMillis >= 1000) {
-  //   previousMillis = currentMillis;
-
-  //   int sensorMoisture = readMoistureSensor();
-  //   Serial.println(sensorMoisture);
-
-  // }
-
-    // int sensorMoisture = readMoistureSensor();
-    // Serial.println(sensorMoisture);
-    // delay(100);
+  // Serial.print("SENSOR: ");
+  // Serial.println(readMoistureSensor());
+  // delay(600);
 }
 
 // ------------------------------------------ Funcoes ------------------------------------
+
+void readDuration(Request &req, Response &res) {
+  if (programmedDuration != NULL) {
+    res.print(programmedDuration);
+  } else {
+    res.print("Valor Nulo ou Indefinido");
+  }
+}
+
+void setDuration(Request &req, Response &res){
+  Serial.print("Duração: ");
+  String requestBody = req.readString();
+  Serial.println(requestBody);
+
+  programmedDuration = requestBody.toInt();
+
+  res.print(programmedDuration);
+}
+
+void readSchedule(Request &req, Response &res) {
+  for (const auto &time : scheduleListESP32) {
+    res.print(time + "\n");
+  }
+}
+
+void setSchedule(awot::Request &req, awot::Response &res) {
+  // Limpar a lista antes de adicionar novos itens
+  scheduleListESP32.clear();
+
+  Serial.print("schedule: ");
+  String requestBody = req.readString();
+  Serial.println(requestBody);
+
+  // Parse do JSON usando ArduinoJson
+  DynamicJsonDocument doc(1024);  // Tamanho máximo estimado
+  deserializeJson(doc, requestBody);
+
+  // Iterar pelos itens no JSON
+  for (const auto &item : doc.as<JsonArray>()) {
+    String time = item["time"];
+    // Adicionar à lista
+    scheduleListESP32.push_back(time);
+  }
+
+  for (const auto &time : scheduleListESP32) {
+    res.print(time + "\n");
+  }
+}
 
 
 // Rota para obter valores do sensor de umidade
@@ -98,8 +140,8 @@ int readMoistureSensor() {
   int sensorValue = analogRead(AOUT_PIN);
 
   // Intervalo original do sensor
-  int sensorMin = 1126;
-  int sensorMax = 3055;
+  int sensorMin = 1760;
+  int sensorMax = 4095;
 
   // Intervalo desejado (porcentagem)
   int targetMin = 100;  // Invertido: agora representa 100% quando molhado
@@ -109,23 +151,28 @@ int readMoistureSensor() {
   int moisture = map(sensorValue, sensorMin, sensorMax, targetMin, targetMax);
 
   return moisture;
+  // return sensorValue;
 }
-
 
 void readMode(Request &req, Response &res) {
   res.print(modeOn);
 }
 
 void updateMode(Request &req, Response &res) {
-  modeOn = (req.read() != '0');
+  Serial.print("modo: ");
+  String requestBody = req.readString();
+  Serial.println(requestBody);
+
+  modeOn = (requestBody.toInt() != 0);
   digitalWrite(MODE_BUILTIN, modeOn);
+
   return readMode(req, res);
 }
 
 void connectToWiFi() {
   Serial.println("Conectando ao WiFi...");
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-  
+
   int attempts = 0;
   while (WiFi.status() != WL_CONNECTED && attempts < 20) {
     delay(500);
@@ -140,4 +187,3 @@ void connectToWiFi() {
     Serial.println("\nFalha na conexão ao WiFi. Verifique suas credenciais.");
   }
 }
-

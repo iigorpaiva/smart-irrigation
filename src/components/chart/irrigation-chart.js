@@ -1,63 +1,95 @@
-import React from 'react';
-import { Bar } from 'react-chartjs-2';
+import React, { useEffect, useState } from 'react';
 import { Chart, registerables } from 'chart.js';
+import 'chartjs-adapter-moment';
 
 Chart.register(...registerables);
 
+const generateMockData = () => {
+  const labels = [];
+  const values = [];
+
+  // Gera dados para as últimas 12 horas
+  for (let i = 12; i > 0; i--) {
+    const currentTime = new Date();
+    currentTime.setHours(currentTime.getHours() - i);
+
+    labels.push(currentTime.toISOString());
+    values.push(Math.floor(Math.random() * 100)); // Valor de umidade aleatório entre 0 e 100
+  }
+
+  return { labels, values };
+};
+
 const HumidityChart = () => {
-  // Dados fixos para simulação
-  const labels = ['00:00', '01:00', '02:00', '03:00', '04:00', '05:00', '06:00', '07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00', '23:00'];
-  const data = [60, 70, 80, 90, 95, 85, 75, 70, 65, 65, 65, 60, 55, 40, 40, 40, 30, 30, 27, 25, 20, 20, 15, 10];
+  const [chart, setChart] = useState(null);
 
-  const chartData = {
-    labels: labels,
-    datasets: [
-      {
-        label: 'Umidade (%)',
-        data: data,
-        borderColor: '#A4DDED',
-        backgroundColor: '#A4DDED',
-        borderWidth: 1,
+  useEffect(() => {
+    const mockData = generateMockData();
+
+    const ctx = document.getElementById('humidity-chart').getContext('2d');
+
+    const newChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: mockData.labels,
+        datasets: [
+          {
+            label: 'Umidade (%)',
+            data: mockData.values,
+            borderColor: '#A4DDED',
+            backgroundColor: '#A4DDED',
+            borderWidth: 1,
+          },
+        ],
       },
-    ],
-  };
-
-  const options = {
-    scales: {
-      x: [
-        {
-          type: "time",
-          time: {
-            unit: "hour",
-            displayFormats: {
-              hour: "HH:mm",
+      options: {
+        scales: {
+          x: {
+            type: 'time',
+            time: {
+              unit: 'hour',
+              displayFormats: {
+                hour: 'HH:mm',
+              },
+            },
+            title: {
+              display: true,
+              text: 'Tempo',
             },
           },
-          scaleLabel: {
-            display: true,
-            labelString: "Tempo",
+          y: {
+            title: {
+              display: true,
+              text: 'Umidade (%)',
+            },
+            ticks: {
+              beginAtZero: true,
+              max: 100,
+              min: 0,
+            },
           },
         },
-      ],
-      y: [
-        {
-          scaleLabel: {
-            display: true,
-            labelString: "Umidade (%)",
-          },
-          ticks: {
-            beginAtZero: true,
-            max: 100,
-            min: 0,
-          },
-        },
-      ],
-    },
-  };
+      },
+    });
+
+    setChart(newChart);
+
+    // Adiciona um event listener para redimensionamento
+    const handleResize = () => {
+      newChart.resize();
+    };
+
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      newChart.destroy();
+    };
+  }, []); // O array vazio assegura que o efeito só é executado uma vez após a montagem do componente
 
   return (
     <div className="irrigation-chart-container">
-      <Bar data={chartData} options={options} />
+      <canvas id="humidity-chart"></canvas>
     </div>
   );
 };

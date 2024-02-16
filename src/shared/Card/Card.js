@@ -1,4 +1,3 @@
-import { jsx } from "theme-ui";
 import "./Card.css";
 
 const Card = props => {

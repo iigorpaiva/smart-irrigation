@@ -1,88 +1,76 @@
-import React, { Component } from 'react';
+import React, { useState, useEffect } from 'react';
 import MoistureSensor from './components/moisture-sensor/MoistureSensor';
 import "./style.css"
 import Card from './shared/Card/Card';
 import IrrigationMode from './components/irrigation-mode/irrigation-mode';
 import TimePickerComponent from './components/time-picker/time-picker';
-import IrrigationChart from './components/chart/irrigation-chart';
 import HumidityChart from './components/chart/irrigation-chart';
 
-class App extends Component {
-  constructor(props) {
-    super(props);
-    this.state = { ledOn: false, updating: false, sensorData: null };
+const App = () => {
+  const [ledOn, setLedOn] = useState(false);
+  const [updating, setUpdating] = useState(false);
+  const [sensorData, setSensorData] = useState(null);
 
-    // Bind the methods to the current instance of the class
-    this.setLedState = this.setLedState.bind(this);
-    this.handleStateChange = this.handleStateChange.bind(this);
-    this.fetchMoistureData = this.fetchMoistureData.bind(this);
-    this.checkLedStatus = this.checkLedStatus.bind(this);
-  }
+  const setLedState = (state) => {
+    setLedOn(state !== '0');
+    setUpdating(false);
+  };
 
-  setLedState(state) {
-    this.setState({ ledOn: state !== '0', updating: false });
-  }
-
-  handleStateChange(ledOn) {
-    this.setState({ updating: true });
+  const handleStateChange = (ledOn) => {
+    setUpdating(true);
 
     fetch('/mode', { method: 'PUT', body: ledOn ? '0' : '1', timeout: 1000 })
       .then(response => response.text())
-      .then(state => this.setLedState(state))
+      .then(state => setLedState(state))
       .catch(error => {
-        console.error('Error in request:', error);
-        this.setState({ updating: false });
+        console.error('Erro no request do mode:', error);
+        setUpdating(false);
       });
-  }
+  };
 
-  fetchMoistureData = async () => {
+  const fetchMoistureData = async () => {
     try {
       const response = await fetch('/moisture'); 
       const sensorData = await response.json();
-      this.setState({ sensorData });
+      setSensorData(sensorData);
     } catch (error) {
-      console.error('Error fetching sensor data:', error);
+      console.error('Erro ao obter dados do sensor:', error);
     }
   };
 
-  checkLedStatus = () => {
+  const checkLedStatus = () => {
     fetch('/mode')
       .then(response => response.text())
-      .then(state => this.setLedState(state))
+      .then(state => setLedState(state))
       .catch(error => {
-        console.error('Error checking LED status:', error);
+        console.error('Erro ao obter dados do rele:', error);
       });
   };
 
-  componentDidMount() {
-    this.checkLedStatus();
-    this.fetchMoistureData();
-    this.intervalID = setInterval(() => {
-      this.checkLedStatus();
-      this.fetchMoistureData();
+  useEffect(() => {
+    checkLedStatus();
+    fetchMoistureData();
+    const intervalID = setInterval(() => {
+      checkLedStatus();
+      fetchMoistureData();
     }, 1000);
-  }
 
-  componentWillUnmount() {
-    clearInterval(this.intervalID);
-  }
+    // Limpeza quando o componente é desmontado
+    return () => clearInterval(intervalID);
+  }, []); // O array vazio assegura que o efeito só é executado uma vez após a montagem do componente
 
-  render() {
-    const { ledOn, sensorData } = this.state;
-
-    return (
-      <div>
-        <div className="main">
-          <div className="container row card-container">
-            <Card title="Modo da Irrigação" body={<IrrigationMode value={ledOn} onToggle={value => this.handleStateChange(value)} disabled={this.state.updating} />} />
-            <Card title="Agendamento" body={<TimePickerComponent />} />
-            <Card title="Umidade do Solo" body={<MoistureSensor sensorData={sensorData} />} />
-            <Card title="Monitoramento" body={<HumidityChart />} />
-          </div>
+  return (
+    <div>
+      <div className="main">
+        <div className="container row card-container">
+          <Card title="Modo da Irrigação" body={<IrrigationMode value={ledOn} onToggle={value => handleStateChange(value)} disabled={updating} />} />
+          <Card title="Agendamento" body={<TimePickerComponent />} />
+          <Card title="Umidade do Solo" body={<MoistureSensor sensorData={sensorData} />} />
+          <Card title="Monitoramento" body={<HumidityChart />} />
         </div>
       </div>
-    );
-  }
+    </div>
+  );
 }
 
 export default App;

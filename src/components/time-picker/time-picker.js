@@ -1,47 +1,99 @@
-// Importe useState e useEffect
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import TimePicker from 'rc-time-picker';
 import 'rc-time-picker/assets/index.css';
-import Logo from '../logo/logo';
 import "./time-picker.css";
 
 const TimePickerComponent = () => {
   const [numTimePickers, setNumTimePickers] = useState(1);
   const [irrigationDuration, setIrrigationDuration] = useState(15);
-  const [selectedTimes, setSelectedTimes] = useState([]);
+  const [scheduleList, setScheduleList] = useState(Array.from({ length: 4 }, () => ({ time: null, duration: irrigationDuration })));
 
   const handleNumTimePickersChange = (e) => {
     const selectedNum = parseInt(e.target.value, 10);
     setNumTimePickers(Math.min(selectedNum, 4));
   };
 
+  useEffect(() => {
+    try {
+      fetch('/duration', { method: 'GET' })
+        .then(response => response.text())
+        .then(duration => {
+          console.log('Foi salvo no servidor a duração: ', duration);
+          
+          // Atualizar o estado de irrigationDuration no componente
+          setIrrigationDuration(parseInt(duration, 10));
+        })
+        .catch(error => {
+          console.error('Erro ao buscar o duration:', error);
+        });
+    } catch (error) {
+      console.error('Erro ao buscar o duration:', error);
+    }
+  }, []);
+
   const handleIrrigationDurationChange = (e) => {
     const selectedDuration = parseInt(e.target.value, 10);
-    setIrrigationDuration(selectedDuration);
+
+    try {
+      fetch('/duration', { method: 'POST', body: JSON.stringify(selectedDuration) })
+        .then(response => response.text())
+        .then(duration => {
+          
+          // Atualizar o estado de irrigationDuration no componente
+          setIrrigationDuration(parseInt(duration, 10));
+        })
+        .catch(error => {
+          console.error('Erro no POST da duração:', error);
+        });
+    } catch (error) {
+      console.error('Erro ao realizar o cadastro da duração:', error);
+    }
   };
 
-  // Função para lidar com a mudança de tempo
   const handleTimeChange = (time, index) => {
-    const newSelectedTimes = [...selectedTimes];
-    newSelectedTimes[index] = time;
-    setSelectedTimes(newSelectedTimes);
+    // Converte o horário local para UTC antes de enviar
+    const adjustedTime = time && time.utcOffset(0, true);
+  
+    const newScheduleList = [...scheduleList];
+    newScheduleList[index] = { time: adjustedTime };
+    setScheduleList(newScheduleList);
+  
+    // Envie a lista atualizada para o ESP32
+    sendTimesToESP32(newScheduleList);
+  };  
 
-    // Envie o tempo para o ESP32 aqui
-    // Substitua o console.log pelo código real para enviar para o ESP32
-    console.log(`Horário ${index + 1}: ${time && time.format('HH:mm')}`);
+  const sendTimesToESP32 = async (timesList) => {
+    // Filtrar apenas os itens com 'time' não nulo
+    const validTimesList = timesList.filter(item => item.time !== null);
+
+    try {
+
+      fetch('/schedule', { method: 'POST', body: JSON.stringify(validTimesList) })
+        .then(response => response.text())
+        .then(data => {
+          console.log('Resposta do servidor:', data);
+          // Aqui você pode realizar qualquer outra lógica com os dados retornados
+        })
+        .catch(error => {
+          console.error('Erro no POST do schedule:', error);
+      });
+
+    } catch (error) {
+      console.error('Erro ao realizar a requisição:', error);
+    }
   };
 
   const renderTimePickers = () => {
     const timePickers = [];
     for (let i = 0; i < numTimePickers; i++) {
+      const selectedTime = scheduleList[i];
       timePickers.push(
         <div key={i} className="time-picker-item">
           <div className="time-picker-label">
             <h3>Horário {i + 1}:</h3>
           </div>
           <div className="time-picker-input">
-            {/* Adicione o evento onChange para lidar com a mudança de tempo */}
-            <TimePicker showSecond={false} onChange={(time) => handleTimeChange(time, i)} />
+            <TimePicker showSecond={false} value={selectedTime ? selectedTime.time : null} onChange={(time) => handleTimeChange(time, i)} />
           </div>
         </div>
       );
@@ -51,9 +103,6 @@ const TimePickerComponent = () => {
 
   return (
     <div className="time-picker-container">
-      {/* <div className="logo-container">
-        <Logo />
-      </div> */}
       <div className="time-picker-container-in-line">
         <div className="dropdown-container">
           <h3>Número de Irrigações: </h3>
