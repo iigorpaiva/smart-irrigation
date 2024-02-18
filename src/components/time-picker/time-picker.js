@@ -3,32 +3,76 @@ import TimePicker from 'rc-time-picker';
 import 'rc-time-picker/assets/index.css';
 import "./time-picker.css";
 
+import moment from 'moment';
+import 'moment/locale/pt-br'; // ou outra localização desejada
+
 const TimePickerComponent = () => {
   const [numTimePickers, setNumTimePickers] = useState(1);
   const [irrigationDuration, setIrrigationDuration] = useState(15);
   const [scheduleList, setScheduleList] = useState(Array.from({ length: 4 }, () => ({ time: null, duration: irrigationDuration })));
+  const [isRenderedBySchedule, setIsRenderedBySchedule] = useState(false);
 
   const handleNumTimePickersChange = (e) => {
     const selectedNum = parseInt(e.target.value, 10);
-    setNumTimePickers(Math.min(selectedNum, 4));
+    const adjustedNum = Math.min(selectedNum, 4);
+
+    // Se o número de time pickers for reduzido, ajuste a lista
+    if (adjustedNum < numTimePickers) {
+      const adjustedList = scheduleList.slice(0, adjustedNum);
+      sendTimesToESP32(adjustedList);
+    }
+
+    setNumTimePickers(adjustedNum);
   };
 
   useEffect(() => {
     try {
       fetch('/duration', { method: 'GET' })
+      .then(response => response.text())
+      .then(duration => {
+        console.log('Foi salvo no servidor a duração: ', duration);
+    
+        // Atualizar o estado de irrigationDuration no componente
+        const parsedDuration = parseInt(duration, 10);
+        setIrrigationDuration(parsedDuration || 15); // Se parsedDuration for falsy, define como 15
+      })
+      .catch(error => {
+        console.error('Erro ao buscar o duration:', error);
+      });
+
+      fetch('/schedule', { method: 'GET' })
         .then(response => response.text())
-        .then(duration => {
-          console.log('Foi salvo no servidor a duração: ', duration);
-          
-          // Atualizar o estado de irrigationDuration no componente
-          setIrrigationDuration(parseInt(duration, 10));
+        .then(schedule => {
+          console.log("HORÁRIOS: ", schedule);
+
+          setIsRenderedBySchedule(true);
+      
+          // Verificar se o schedule está nulo ou indefinido
+          if (schedule == null || schedule.trim().toLowerCase() === 'null' || schedule == "Not Found") {
+
+            // Trate o caso especial aqui, como definir um valor padrão para receivedScheduleList
+            const receivedScheduleList = []; // ou qualquer valor padrão desejado
+            setNumTimePickers(1); // Pode ser 0 ou qualquer valor que faça sentido para o seu caso
+          } else {
+            // Caso normal: processar o schedule recebido
+            const receivedScheduleList = schedule.split('\n').map(time => ({ time: time.trim() }));
+            const filteredScheduleList = receivedScheduleList.filter(item => item.time !== '');
+      
+            // Atualizar o estado de scheduleList no componente
+            setScheduleList(receivedScheduleList);
+      
+            // Atualizar o estado de numTimePickers com base na quantidade de horários recebidos
+            setNumTimePickers(filteredScheduleList.length);
+          }
         })
         .catch(error => {
-          console.error('Erro ao buscar o duration:', error);
+          console.error('Erro ao buscar os horários:', error);
         });
+
     } catch (error) {
       console.error('Erro ao buscar o duration:', error);
     }
+
   }, []);
 
   const handleIrrigationDurationChange = (e) => {
@@ -57,6 +101,8 @@ const TimePickerComponent = () => {
     const newScheduleList = [...scheduleList];
     newScheduleList[index] = { time: adjustedTime };
     setScheduleList(newScheduleList);
+
+    setIsRenderedBySchedule(false);
   
     // Envie a lista atualizada para o ESP32
     sendTimesToESP32(newScheduleList);
@@ -72,7 +118,6 @@ const TimePickerComponent = () => {
         .then(response => response.text())
         .then(data => {
           console.log('Resposta do servidor:', data);
-          // Aqui você pode realizar qualquer outra lógica com os dados retornados
         })
         .catch(error => {
           console.error('Erro no POST do schedule:', error);
@@ -87,13 +132,25 @@ const TimePickerComponent = () => {
     const timePickers = [];
     for (let i = 0; i < numTimePickers; i++) {
       const selectedTime = scheduleList[i];
+      const formattedTime = isRenderedBySchedule
+        ? selectedTime && selectedTime.time
+          ? moment(selectedTime.time).subtract(-3, 'hours')
+          : null
+        : selectedTime && selectedTime.time
+        ? moment(selectedTime.time)
+        : null;
+
       timePickers.push(
         <div key={i} className="time-picker-item">
           <div className="time-picker-label">
             <h3>Horário {i + 1}:</h3>
           </div>
           <div className="time-picker-input">
-            <TimePicker showSecond={false} value={selectedTime ? selectedTime.time : null} onChange={(time) => handleTimeChange(time, i)} />
+            <TimePicker
+              showSecond={false}
+              value={formattedTime}
+              onChange={(time) => handleTimeChange(time, i)}
+            />
           </div>
         </div>
       );

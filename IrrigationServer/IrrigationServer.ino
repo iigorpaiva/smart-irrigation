@@ -36,12 +36,14 @@ void setup() {
   connectToWiFi();
 
   app.get("/mode", &readMode);
-  app.put("/mode", &updateMode);
-  app.get("/moisture", &getMoisture);  // Nova rota para obter valores do sensor de umidade
-  app.post("/schedule", &setSchedule);
+  app.get("/moisture", &getMoisture);
   app.get("/duration", &readDuration);
-  app.post("/duration", &setDuration);
   app.get("/schedule", &readSchedule);
+  
+  app.put("/mode", &updateMode);
+
+  app.post("/duration", &setDuration);
+  app.post("/schedule", &setSchedule);
 
   app.use(staticFiles());
 
@@ -83,7 +85,8 @@ void readDuration(Request &req, Response &res) {
   if (programmedDuration != NULL) {
     res.print(programmedDuration);
   } else {
-    res.print("Valor Nulo ou Indefinido");
+    programmedDuration = 15;
+    res.print(programmedDuration);
   }
 }
 
@@ -98,8 +101,14 @@ void setDuration(Request &req, Response &res){
 }
 
 void readSchedule(Request &req, Response &res) {
+  if (scheduleListESP32.empty()) {
+    Serial.println("TÁVAZIA!!!");
+    res.print("");  // Se a lista estiver vazia, enviar uma string vazia como resposta
+    return;
+  }
+
   for (const auto &time : scheduleListESP32) {
-    res.print(time + "\n");
+    res.print(!time.isEmpty() ? time + "\n" : "");
   }
 }
 
@@ -107,7 +116,6 @@ void setSchedule(awot::Request &req, awot::Response &res) {
   // Limpar a lista antes de adicionar novos itens
   scheduleListESP32.clear();
 
-  Serial.print("schedule: ");
   String requestBody = req.readString();
   Serial.println(requestBody);
 
@@ -118,8 +126,12 @@ void setSchedule(awot::Request &req, awot::Response &res) {
   // Iterar pelos itens no JSON
   for (const auto &item : doc.as<JsonArray>()) {
     String time = item["time"];
-    // Adicionar à lista
-    scheduleListESP32.push_back(time);
+    
+    // Verificar se o tempo não está vazio antes de adicionar à lista
+    if (!time.isEmpty() && time != "null") {
+      // Adicionar à lista
+      scheduleListESP32.push_back(time);
+    }
   }
 
   for (const auto &time : scheduleListESP32) {
@@ -159,10 +171,7 @@ void readMode(Request &req, Response &res) {
 }
 
 void updateMode(Request &req, Response &res) {
-  Serial.print("modo: ");
   String requestBody = req.readString();
-  Serial.println(requestBody);
-
   modeOn = (requestBody.toInt() != 0);
   digitalWrite(MODE_BUILTIN, modeOn);
 
