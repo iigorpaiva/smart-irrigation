@@ -14,15 +14,7 @@ const TimePickerComponent = () => {
 
   const handleNumTimePickersChange = (e) => {
     const selectedNum = parseInt(e.target.value, 10);
-    const adjustedNum = Math.min(selectedNum, 4);
-
-    // Se o número de time pickers for reduzido, ajuste a lista
-    if (adjustedNum < numTimePickers) {
-      const adjustedList = scheduleList.slice(0, adjustedNum);
-      sendTimesToESP32(adjustedList);
-    }
-
-    setNumTimePickers(adjustedNum);
+    setNumTimePickers(Math.min(selectedNum, 4));
   };
 
   useEffect(() => {
@@ -162,7 +154,7 @@ const TimePickerComponent = () => {
     <div className="time-picker-container">
       <div className="time-picker-container-in-line">
         <div className="dropdown-container">
-          <h3>Número de Irrigações: </h3>
+          <h3>Número de Irrigações diárias: </h3>
           <select id="numTimePickers" value={numTimePickers} onChange={handleNumTimePickersChange}>
             {[1, 2, 3, 4].map((value) => (
               <option key={value} value={value}>
