@@ -7,8 +7,9 @@
 #include <WiFiUdp.h>
 #include <vector>
 #include <ArduinoJson.h>
+#include <algorithm>
 
-#define WIFI_SSID "brisa-2648486"
+#define WIFI_SSID "brisa-2648486-EXT"
 #define WIFI_PASSWORD "1hrgpa3r"
 #define MODE_BUILTIN 26
 #define AOUT_PIN 33
@@ -112,7 +113,8 @@ void readSchedule(Request &req, Response &res) {
   }
 }
 
-void setSchedule(awot::Request &req, awot::Response &res) {
+
+void setSchedule(Request &req, Response &res) {
   // Limpar a lista antes de adicionar novos itens
   scheduleListESP32.clear();
 
@@ -126,7 +128,7 @@ void setSchedule(awot::Request &req, awot::Response &res) {
   // Iterar pelos itens no JSON
   for (const auto &item : doc.as<JsonArray>()) {
     String time = item["time"];
-    
+
     // Verificar se o tempo não está vazio antes de adicionar à lista
     if (!time.isEmpty() && time != "null") {
       // Adicionar à lista
@@ -134,10 +136,14 @@ void setSchedule(awot::Request &req, awot::Response &res) {
     }
   }
 
+  // Ordenar a lista
+  std::sort(scheduleListESP32.begin(), scheduleListESP32.end());
+
   for (const auto &time : scheduleListESP32) {
     res.print(time + "\n");
   }
 }
+
 
 
 // Rota para obter valores do sensor de umidade
@@ -152,7 +158,7 @@ int readMoistureSensor() {
   int sensorValue = analogRead(AOUT_PIN);
 
   // Intervalo original do sensor
-  int sensorMin = 1760;
+  int sensorMin = 3120;
   int sensorMax = 4095;
 
   // Intervalo desejado (porcentagem)
