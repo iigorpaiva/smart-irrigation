@@ -10,11 +10,19 @@ const TimePickerComponent = () => {
   const [numTimePickers, setNumTimePickers] = useState(1);
   const [irrigationDuration, setIrrigationDuration] = useState(15);
   const [scheduleList, setScheduleList] = useState(Array.from({ length: 4 }, () => ({ time: null, duration: irrigationDuration })));
-  const [isRenderedBySchedule, setIsRenderedBySchedule] = useState(false);
 
   const handleNumTimePickersChange = (e) => {
     const selectedNum = parseInt(e.target.value, 10);
-    setNumTimePickers(Math.min(selectedNum, 4));
+    const newScheduleList = scheduleList.slice(0, selectedNum);
+  
+    // Atualizar o estado de scheduleList no componente
+    setScheduleList(newScheduleList);
+  
+    // Atualizar o estado de numTimePickers com base na quantidade de horários recebidos
+    setNumTimePickers(selectedNum);
+  
+    // Envie a lista atualizada para o ESP32
+    sendTimesToESP32(newScheduleList);
   };
 
   useEffect(() => {
@@ -36,8 +44,6 @@ const TimePickerComponent = () => {
         .then(response => response.text())
         .then(schedule => {
           console.log("HORÁRIOS: ", schedule);
-
-          // setIsRenderedBySchedule(true);
       
           // Verificar se o schedule está nulo ou indefinido
           if (schedule == null || schedule.trim().toLowerCase() === 'null' || schedule === "Not Found") {
@@ -94,9 +100,7 @@ const TimePickerComponent = () => {
     const newScheduleList = [...scheduleList];
     newScheduleList[index] = { time: adjustedTime };
     setScheduleList(newScheduleList);
-  
-    // setIsRenderedBySchedule(false);
-  
+    
     // Envie a lista atualizada para o ESP32
     sendTimesToESP32(newScheduleList);
   };
