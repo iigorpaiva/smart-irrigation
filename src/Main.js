@@ -38,7 +38,7 @@ const App = () => {
     }
   };
 
-  const checkLedStatus = () => {
+  const checkModeStatus = () => {
     fetch('/mode')
       .then(response => response.text())
       .then(state => setLedState(state))
@@ -48,10 +48,10 @@ const App = () => {
   };
 
   useEffect(() => {
-    checkLedStatus();
+    checkModeStatus();
     fetchMoistureData();
     const intervalID = setInterval(() => {
-      checkLedStatus();
+      checkModeStatus();
       fetchMoistureData();
     }, 1000);
 

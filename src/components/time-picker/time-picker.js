@@ -37,10 +37,10 @@ const TimePickerComponent = () => {
         .then(schedule => {
           console.log("HORÁRIOS: ", schedule);
 
-          setIsRenderedBySchedule(true);
+          // setIsRenderedBySchedule(true);
       
           // Verificar se o schedule está nulo ou indefinido
-          if (schedule == null || schedule.trim().toLowerCase() === 'null' || schedule == "Not Found") {
+          if (schedule == null || schedule.trim().toLowerCase() === 'null' || schedule === "Not Found") {
 
             // Trate o caso especial aqui, como definir um valor padrão para receivedScheduleList
             const receivedScheduleList = []; // ou qualquer valor padrão desejado
@@ -49,6 +49,7 @@ const TimePickerComponent = () => {
             // Caso normal: processar o schedule recebido
             const receivedScheduleList = schedule.split('\n').map(time => ({ time: time.trim() }));
             const filteredScheduleList = receivedScheduleList.filter(item => item.time !== '');
+            console.log("FILTRADOS: ", filteredScheduleList);
       
             // Atualizar o estado de scheduleList no componente
             setScheduleList(receivedScheduleList);
@@ -87,18 +88,19 @@ const TimePickerComponent = () => {
   };
 
   const handleTimeChange = (time, index) => {
-    // Converte o horário local para UTC antes de enviar
-    const adjustedTime = time && time.utcOffset(0, true);
-  
+    // Converta o horário local para UTC antes de enviar
+    const adjustedTime = time && time.utcOffset(0, true).format('HH:mm');
+    
     const newScheduleList = [...scheduleList];
     newScheduleList[index] = { time: adjustedTime };
     setScheduleList(newScheduleList);
-
-    setIsRenderedBySchedule(false);
+  
+    // setIsRenderedBySchedule(false);
   
     // Envie a lista atualizada para o ESP32
     sendTimesToESP32(newScheduleList);
-  };  
+  };
+  
 
   const sendTimesToESP32 = async (timesList) => {
     // Filtrar apenas os itens com 'time' não nulo
@@ -124,14 +126,10 @@ const TimePickerComponent = () => {
     const timePickers = [];
     for (let i = 0; i < numTimePickers; i++) {
       const selectedTime = scheduleList[i];
-      const formattedTime = isRenderedBySchedule
-        ? selectedTime && selectedTime.time
-          ? moment(selectedTime.time).subtract(-3, 'hours')
-          : null
-        : selectedTime && selectedTime.time
-        ? moment(selectedTime.time)
+      const formattedTime = selectedTime && selectedTime.time
+        ? moment.utc(selectedTime.time, 'HH:mm')
         : null;
-
+  
       timePickers.push(
         <div key={i} className="time-picker-item">
           <div className="time-picker-label">

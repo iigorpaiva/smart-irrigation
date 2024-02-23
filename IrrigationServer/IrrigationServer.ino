@@ -8,7 +8,7 @@
 #include <vector>
 #include <ArduinoJson.h>
 
-#define WIFI_SSID "brisa-2648486-EXT"
+#define WIFI_SSID "brisa-2648486"
 #define WIFI_PASSWORD "1hrgpa3r"
 #define MODE_BUILTIN 26
 #define AOUT_PIN 33
