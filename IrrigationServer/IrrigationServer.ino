@@ -19,8 +19,9 @@ Application app;
 
 bool modeOn;
 
+// Define NTP Client to get time
 WiFiUDP ntpUDP;
-NTPClient timeClient(ntpUDP, "pool.ntp.org");
+NTPClient timeClient(ntpUDP);
 
 unsigned long lastConnectionCheckTime = 0;
 const unsigned long connectionCheckInterval = 10000;  // Intervalo de verificação em milissegundos (10 segundos)
@@ -56,10 +57,15 @@ void setup() {
 
   // Inicialização do cliente NTP
   timeClient.begin();
+  timeClient.setTimeOffset(-3 * 3600);
 }
 
 void loop() {
   unsigned long currentMillisWifi = millis();
+
+  if (!timeClient.update()){
+    timeClient.forceUpdate();
+  }
 
   // Verificar e reconectar se necessário a cada 10 segundos
   if (WiFi.status() != WL_CONNECTED) {
@@ -78,9 +84,17 @@ void loop() {
   // Serial.print("SENSOR: ");
   // Serial.println(readMoistureSensor());
   // delay(600);
+
+  // printCurrentTime();
 }
 
 // ------------------------------------------ Funcoes ------------------------------------
+
+void printCurrentTime() {
+  Serial.print("Hora atual: ");
+  Serial.print(timeClient.getFormattedTime());
+  Serial.println();
+}
 
 void readDuration(Request &req, Response &res) {
   if (programmedDuration != NULL) {
