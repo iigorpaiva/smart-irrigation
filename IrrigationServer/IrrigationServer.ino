@@ -67,6 +67,8 @@ void loop() {
     timeClient.forceUpdate();
   }
 
+  checkScheduledMode();
+
   // Verificar e reconectar se necessário a cada 10 segundos
   if (WiFi.status() != WL_CONNECTED) {
     if (currentMillisWifi - lastConnectionCheckTime >= connectionCheckInterval) {
@@ -89,6 +91,28 @@ void loop() {
 }
 
 // ------------------------------------------ Funcoes ------------------------------------
+
+void checkScheduledMode() {
+  String currentTime = convertToHHMM(timeClient.getFormattedTime());
+
+  if (!modeOn) {
+    if (std::find(scheduleListESP32.begin(), scheduleListESP32.end(), currentTime) != scheduleListESP32.end()) {
+      // O tempo atual está na lista de horários programados
+      modeOn = true;
+      digitalWrite(MODE_BUILTIN, modeOn);
+      Serial.println("Modo ativado conforme programação de horário.");
+    }
+  }
+  // Não há necessidade de desativar o modo aqui
+}
+
+String convertToHHMM(String formattedTime) {
+  int separatorIndex = formattedTime.indexOf(':');
+  if (separatorIndex != -1) {
+    return formattedTime.substring(0, separatorIndex + 3);
+  }
+  return formattedTime;
+}
 
 void printCurrentTime() {
   Serial.print("Hora atual: ");
@@ -192,12 +216,24 @@ void readMode(Request &req, Response &res) {
 
 void updateMode(Request &req, Response &res) {
   String requestBody = req.readString();
-  modeOn = (requestBody.toInt() != 0);
-  digitalWrite(MODE_BUILTIN, modeOn);
+  bool newMode = (requestBody.toInt() != 0);
 
-  return readMode(req, res);
+  if (modeOn != newMode) {
+    // Se o modo estiver sendo alterado, desative imediatamente
+    modeOn = newMode;
+    digitalWrite(MODE_BUILTIN, modeOn);
+
+    if (!modeOn) {
+      // Se o modo está sendo desativado, remova o horário atual da lista para que não seja ativado novamente
+      String currentTime = convertToHHMM(timeClient.getFormattedTime());
+      scheduleListESP32.erase(std::remove(scheduleListESP32.begin(), scheduleListESP32.end(), currentTime), scheduleListESP32.end());
+    }
+
+    Serial.println("Modo atualizado via requisição HTTP.");
+  }
+
+  readMode(req, res);  // Atualize a resposta com o estado atual do modo
 }
-
 void connectToWiFi() {
   Serial.println("Conectando ao WiFi...");
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
