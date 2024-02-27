@@ -26,7 +26,10 @@ NTPClient timeClient(ntpUDP);
 unsigned long lastConnectionCheckTime = 0;
 const unsigned long connectionCheckInterval = 10000;  // Intervalo de verificação em milissegundos (10 segundos)
 
-int programmedDuration;
+int programmedDuration = 2;
+
+unsigned long modeActivationStartTime = 0;
+unsigned long modeActivationDuration = 0;
 
 std::vector<String> scheduleListESP32;
 
@@ -101,9 +104,19 @@ void checkScheduledMode() {
       modeOn = true;
       digitalWrite(MODE_BUILTIN, modeOn);
       Serial.println("Modo ativado conforme programação de horário.");
+
+      // Configurar o tempo de início e duração
+      modeActivationStartTime = millis();
+      modeActivationDuration = programmedDuration * 60 * 1000; // Convertendo minutos para milissegundos
+    }
+  } else {
+    // Verificar se o tempo de duração expirou
+    if (millis() - modeActivationStartTime >= modeActivationDuration) {
+      modeOn = false;
+      digitalWrite(MODE_BUILTIN, modeOn);
+      Serial.println("Modo desativado após o tempo programado.");
     }
   }
-  // Não há necessidade de desativar o modo aqui
 }
 
 String convertToHHMM(String formattedTime) {
@@ -218,22 +231,29 @@ void updateMode(Request &req, Response &res) {
   String requestBody = req.readString();
   bool newMode = (requestBody.toInt() != 0);
 
+  // Se o modo estiver sendo alterado
   if (modeOn != newMode) {
-    // Se o modo estiver sendo alterado, desative imediatamente
-    modeOn = newMode;
-    digitalWrite(MODE_BUILTIN, modeOn);
-
-    if (!modeOn) {
-      // Se o modo está sendo desativado, remova o horário atual da lista para que não seja ativado novamente
+    if (newMode) {
+      // Se está sendo ativado, configurar o tempo de início e duração com base no programmedDuration
+      modeActivationStartTime = millis();
+      modeActivationDuration = programmedDuration * 60 * 1000;
+    } else {
+      // Se está sendo desativado, remover o horário atual da lista para que não seja ativado novamente
       String currentTime = convertToHHMM(timeClient.getFormattedTime());
       scheduleListESP32.erase(std::remove(scheduleListESP32.begin(), scheduleListESP32.end(), currentTime), scheduleListESP32.end());
     }
 
+    // Atualizar o estado do modo
+    modeOn = newMode;
+    digitalWrite(MODE_BUILTIN, modeOn);
+
     Serial.println("Modo atualizado via requisição HTTP.");
   }
 
-  readMode(req, res);  // Atualize a resposta com o estado atual do modo
+  readMode(req, res);  // Atualizar a resposta com o estado atual do modo
 }
+
+
 void connectToWiFi() {
   Serial.println("Conectando ao WiFi...");
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
