@@ -9,6 +9,13 @@
 #include <ArduinoJson.h>
 #include <algorithm>
 
+#include <map>
+
+#define AVERAGE_CALCULATION_INTERVAL 60000  // Intervalo de cálculo da média a cada 1 minuto
+#define PRINT_MAP_INTERVAL 5000  // Intervalo de impressão do mapa a cada 5 segundos
+
+#define MAX_MAP_SIZE 12
+
 #define WIFI_SSID "brisa-2648486-EXT"
 #define WIFI_PASSWORD "1hrgpa3r"
 #define MODE_BUILTIN 26
@@ -31,7 +38,11 @@ int programmedDuration = 2;
 unsigned long modeActivationStartTime = 0;
 unsigned long modeActivationDuration = 0;
 
+unsigned long lastPrintMapTime = 0;
+
 std::vector<String> scheduleListESP32;
+
+std::map<String, float> sensorHourlyAverageMap;
 
 void setup() {
   pinMode(MODE_BUILTIN, OUTPUT);
@@ -91,9 +102,77 @@ void loop() {
   // delay(600);
 
   // printCurrentTime();
+
+  calculateAverageSensorHour();
+
+   // Chamar a função para imprimir o mapa a cada 5 segundos
+  if (currentMillisWifi - lastPrintMapTime >= PRINT_MAP_INTERVAL) {
+    lastPrintMapTime = currentMillisWifi;
+    printSensorHourlyAverageMap();
+  }
 }
 
 // ------------------------------------------ Funcoes ------------------------------------
+
+void printSensorHourlyAverageMap() {
+  Serial.println("Sensor Hourly Average Map:");
+
+  for (const auto &entry : sensorHourlyAverageMap) {
+    Serial.print("Hour: ");
+    Serial.print(entry.first);
+    Serial.print(", Average Moisture: ");
+    Serial.println(entry.second);
+  }
+
+  Serial.println();
+}
+
+void calculateAverageSensorHour() {
+  static unsigned long lastAverageCalculationTime = 0;
+  static float sumMoisture = 0;
+  static int numReadings = 0;
+  String currentHour;
+
+  unsigned long currentMillis = millis();
+
+  // Verificar se é hora de calcular a média
+  if (currentMillis - lastAverageCalculationTime >= AVERAGE_CALCULATION_INTERVAL) {
+    // Calcular a média e armazenar no mapa
+    if (numReadings > 0) {
+      // Obter a hora atual
+      currentHour = convertToHHMM0(timeClient.getFormattedTime());
+
+      // Remover os minutos da hora para salvar apenas a hora no mapa
+      currentHour.remove(3, 2);
+      Serial.print("current hour: ");
+      Serial.println(currentHour);
+
+      // Verificar se já existe uma entrada para a hora atual no mapa
+      auto it = sensorHourlyAverageMap.find(currentHour);
+      if (it != sensorHourlyAverageMap.end()) {
+        // Se existir, atualizar a média
+        it->second = sumMoisture / numReadings;
+      } else {
+        // Se não existir, adicionar uma nova entrada no mapa
+        sensorHourlyAverageMap[currentHour] = sumMoisture / numReadings;
+      }
+    }
+
+    lastAverageCalculationTime = currentMillis;
+
+    // Verificar e ajustar o tamanho do mapa para o máximo permitido
+    while (sensorHourlyAverageMap.size() > MAX_MAP_SIZE) {
+      sensorHourlyAverageMap.erase(sensorHourlyAverageMap.begin());
+    }
+  }
+
+  // Fazer a leitura do sensor a cada minuto e adicionar ao cálculo da média
+  if ((currentMillis - lastAverageCalculationTime) < AVERAGE_CALCULATION_INTERVAL) {
+    int moistureReading = readMoistureSensor();
+    sumMoisture += moistureReading;
+    numReadings++;
+  }
+}
 
 void checkScheduledMode() {
   String currentTime = convertToHHMM(timeClient.getFormattedTime());
@@ -123,6 +202,14 @@ String convertToHHMM(String formattedTime) {
   int separatorIndex = formattedTime.indexOf(':');
   if (separatorIndex != -1) {
     return formattedTime.substring(0, separatorIndex + 3);
+  }
+  return formattedTime;
+}
+
+String convertToHHMM0(String formattedTime) {
+  int separatorIndex = formattedTime.indexOf(':');
+  if (separatorIndex != -1) {
+    return formattedTime.substring(0, separatorIndex);
   }
   return formattedTime;
 }
