@@ -25,6 +25,8 @@ WiFiServer server(80);
 Application app;
 
 bool modeOn;
+bool updatedByToggle = false;
+bool activatedBySchedule = false;
 
 // Define NTP Client to get time
 WiFiUDP ntpUDP;
@@ -53,8 +55,9 @@ void setup() {
 
   app.get("/mode", &readMode);
   app.get("/moisture", &getMoisture);
-  app.get("/duration", &readDuration);
+  app.get("/duration", &getDuration);
   app.get("/schedule", &readSchedule);
+  app.get("/chartData", &getChartData);
   
   app.put("/mode", &updateMode);
 
@@ -106,10 +109,10 @@ void loop() {
   calculateAverageSensorHour();
 
    // Chamar a função para imprimir o mapa a cada 5 segundos
-  if (currentMillisWifi - lastPrintMapTime >= PRINT_MAP_INTERVAL) {
-    lastPrintMapTime = currentMillisWifi;
-    printSensorHourlyAverageMap();
-  }
+  // if (currentMillisWifi - lastPrintMapTime >= PRINT_MAP_INTERVAL) {
+  //   lastPrintMapTime = currentMillisWifi;
+  //   printSensorHourlyAverageMap();
+  // }
 }
 
 // ------------------------------------------ Funcoes ------------------------------------
@@ -139,19 +142,28 @@ void calculateAverageSensorHour() {
   if (currentMillis - lastAverageCalculationTime >= AVERAGE_CALCULATION_INTERVAL) {
     // Calcular a média e armazenar no mapa
     if (numReadings > 0) {
-      // Obter a hora atual
-      currentHour = convertToHHMM0(timeClient.getFormattedTime());
 
       // Remover os minutos da hora para salvar apenas a hora no mapa
-      currentHour.remove(3, 2);
-      Serial.print("current hour: ");
+      currentHour = convertToHHMM0(timeClient.getFormattedTime());
+      Serial.print("ANTES: ");
       Serial.println(currentHour);
+
+      currentHour.remove(3, 2); // Remover minutos
+      currentHour.remove(6, 5); // Remover segundos
+      currentHour += ":00:00.000Z";
+      Serial.print("DEPOIS: ");
+      Serial.println(currentHour);
+
+      // Serial.print("current hour: ");
+      // Serial.println(currentHour);
 
       // Verificar se já existe uma entrada para a hora atual no mapa
       auto it = sensorHourlyAverageMap.find(currentHour);
       if (it != sensorHourlyAverageMap.end()) {
         // Se existir, atualizar a média
         it->second = sumMoisture / numReadings;
+        Serial.print("média atualizada: ");
+        Serial.println(sensorHourlyAverageMap[currentHour]);
       } else {
         // Se não existir, adicionar uma nova entrada no mapa
         sensorHourlyAverageMap[currentHour] = sumMoisture / numReadings;
@@ -176,25 +188,29 @@ void calculateAverageSensorHour() {
 
 void checkScheduledMode() {
   String currentTime = convertToHHMM(timeClient.getFormattedTime());
+  // Serial.println(currentTime);
 
-  if (!modeOn) {
+  if (!modeOn){
     if (std::find(scheduleListESP32.begin(), scheduleListESP32.end(), currentTime) != scheduleListESP32.end()) {
       // O tempo atual está na lista de horários programados
       modeOn = true;
+      updatedByToggle = false;
+      activatedBySchedule = true;
       digitalWrite(MODE_BUILTIN, modeOn);
       Serial.println("Modo ativado conforme programação de horário.");
 
       // Configurar o tempo de início e duração
       modeActivationStartTime = millis();
-      modeActivationDuration = programmedDuration * 60 * 1000; // Convertendo minutos para milissegundos
+      modeActivationDuration = programmedDuration * 60 * 1000; // Convertendo minutos para milissegundos7
     }
-  } else {
-    // Verificar se o tempo de duração expirou
-    if (millis() - modeActivationStartTime >= modeActivationDuration) {
-      modeOn = false;
-      digitalWrite(MODE_BUILTIN, modeOn);
-      Serial.println("Modo desativado após o tempo programado.");
-    }
+  }
+  
+  // Verificar se o modo está ativado e se o tempo de duração expirou
+  if (modeOn && !updatedByToggle && activatedBySchedule && ((millis() - modeActivationStartTime) >= modeActivationDuration)) {
+    modeOn = false;
+    activatedBySchedule = false;
+    digitalWrite(MODE_BUILTIN, modeOn);
+    Serial.println("Modo desativado após o tempo programado.");
   }
 }
 
@@ -220,7 +236,7 @@ void printCurrentTime() {
   Serial.println();
 }
 
-void readDuration(Request &req, Response &res) {
+void getDuration(Request &req, Response &res) {
   if (programmedDuration != NULL) {
     res.print(programmedDuration);
   } else {
@@ -282,7 +298,52 @@ void setSchedule(Request &req, Response &res) {
   }
 }
 
+// void getChartData(Request &req, Response &res) {
+//   // Criar um objeto DynamicJsonDocument para armazenar os dados do gráfico
+//   DynamicJsonDocument chartData(1024);
 
+//   // Preencher o objeto com dados reais do seu mapa (sensorHourlyAverageMap)
+//   for (const auto &entry : sensorHourlyAverageMap) {
+//     chartData[entry.first] = entry.second;
+//   }
+
+//   // Serializar o objeto JSON para uma string
+//   String jsonString;
+//   serializeJson(chartData, jsonString);
+
+//   // Configurar o cabeçalho da resposta para indicar que é JSON
+//   res.set("Content-Type", "application/json");
+
+//   // Enviar os dados como resposta JSON
+//   Serial.print("o que tá indo pra lá: ");
+//   Serial.println(jsonString);
+//   res.print(jsonString);
+// }
+
+void getChartData(Request &req, Response &res) {
+  // Criar um objeto DynamicJsonDocument para armazenar os dados do gráfico
+  DynamicJsonDocument chartData(1024);
+
+  // Preencher o objeto com dados reais do seu mapa (sensorHourlyAverageMap)
+  for (const auto &entry : sensorHourlyAverageMap) {
+    // Converta o valor para um número inteiro
+    int intValue = static_cast<int>(entry.second);
+    chartData[entry.first] = intValue;
+  }
+
+  // Serializar o objeto JSON para uma string
+  String jsonString;
+  serializeJson(chartData, jsonString);
+
+  // Configurar o cabeçalho da resposta para indicar que é JSON
+  res.set("Content-Type", "application/json");
+
+  // Enviar os dados como resposta JSON
+  Serial.print("o que tá indo pra lá: ");
+  Serial.println(jsonString);
+
+  res.print(jsonString);
+}
 
 // Rota para obter valores do sensor de umidade
 void getMoisture(Request &req, Response &res) {
@@ -306,8 +367,8 @@ int readMoistureSensor() {
   // Converta o valor lido para um intervalo de 0 a 100
   int moisture = map(sensorValue, sensorMin, sensorMax, targetMin, targetMax);
 
-  return moisture;
-  // return sensorValue;
+  // return moisture;
+  return sensorValue;
 }
 
 void readMode(Request &req, Response &res) {
@@ -318,28 +379,15 @@ void updateMode(Request &req, Response &res) {
   String requestBody = req.readString();
   bool newMode = (requestBody.toInt() != 0);
 
-  // Se o modo estiver sendo alterado
-  if (modeOn != newMode) {
-    if (newMode) {
-      // Se está sendo ativado, configurar o tempo de início e duração com base no programmedDuration
-      modeActivationStartTime = millis();
-      modeActivationDuration = programmedDuration * 60 * 1000;
-    } else {
-      // Se está sendo desativado, remover o horário atual da lista para que não seja ativado novamente
-      String currentTime = convertToHHMM(timeClient.getFormattedTime());
-      scheduleListESP32.erase(std::remove(scheduleListESP32.begin(), scheduleListESP32.end(), currentTime), scheduleListESP32.end());
-    }
+  // Update the mode state
+  modeOn = newMode;
+  updatedByToggle = true;
+  digitalWrite(MODE_BUILTIN, modeOn);
 
-    // Atualizar o estado do modo
-    modeOn = newMode;
-    digitalWrite(MODE_BUILTIN, modeOn);
-
-    Serial.println("Modo atualizado via requisição HTTP.");
-  }
+  Serial.println("Modo atualizado via requisição HTTP.");
 
   readMode(req, res);  // Atualizar a resposta com o estado atual do modo
 }
-
 
 void connectToWiFi() {
   Serial.println("Conectando ao WiFi...");
