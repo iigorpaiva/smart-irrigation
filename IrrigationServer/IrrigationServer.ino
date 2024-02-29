@@ -25,7 +25,6 @@ WiFiServer server(80);
 Application app;
 
 bool modeOn;
-bool updatedByToggle = false;
 bool activatedBySchedule = false;
 
 // Define NTP Client to get time
@@ -34,6 +33,9 @@ NTPClient timeClient(ntpUDP);
 
 unsigned long lastConnectionCheckTime = 0;
 const unsigned long connectionCheckInterval = 10000;  // Intervalo de verificação em milissegundos (10 segundos)
+
+const unsigned long updateInterval = 1000;  // Atualizar a cada 1 minuto
+unsigned long lastUpdateTime = 0;
 
 int programmedDuration = 2;
 
@@ -78,25 +80,27 @@ void setup() {
 }
 
 void loop() {
-  unsigned long currentMillisWifi = millis();
+  unsigned long currentMillis = millis();
 
-  if (!timeClient.update()){
+  if (currentMillis - lastUpdateTime >= updateInterval) {
     timeClient.forceUpdate();
+    lastUpdateTime = currentMillis;
   }
 
   checkScheduledMode();
 
   // Verificar e reconectar se necessário a cada 10 segundos
   if (WiFi.status() != WL_CONNECTED) {
-    if (currentMillisWifi - lastConnectionCheckTime >= connectionCheckInterval) {
-      lastConnectionCheckTime = currentMillisWifi;
+    if (currentMillis - lastConnectionCheckTime >= connectionCheckInterval) {
+      lastConnectionCheckTime = currentMillis;
       connectToWiFi();
     }
   }
 
-  WiFiClient client = server.available();
-
-  if (client.connected()) {
+  // Verificar se há um cliente disponível
+  if (server.hasClient()) {
+    // Obter o cliente apenas se estiver disponível
+    WiFiClient client = server.available();
     app.process(&client);
   }
 
@@ -188,30 +192,32 @@ void calculateAverageSensorHour() {
 
 void checkScheduledMode() {
   String currentTime = convertToHHMM(timeClient.getFormattedTime());
-  // Serial.println(currentTime);
 
-  if (!modeOn){
+  // Verificar se o modo está desativado manualmente
+  if (!modeOn) {
     if (std::find(scheduleListESP32.begin(), scheduleListESP32.end(), currentTime) != scheduleListESP32.end()) {
       // O tempo atual está na lista de horários programados
       modeOn = true;
-      updatedByToggle = false;
-      activatedBySchedule = true;
       digitalWrite(MODE_BUILTIN, modeOn);
       Serial.println("Modo ativado conforme programação de horário.");
 
       // Configurar o tempo de início e duração
       modeActivationStartTime = millis();
-      modeActivationDuration = programmedDuration * 60 * 1000; // Convertendo minutos para milissegundos7
+      modeActivationDuration = programmedDuration * 60 * 1000; // Convertendo minutos para milissegundos
+
+      activatedBySchedule = true;
+      
     }
-  }
-  
+  } 
+
   // Verificar se o modo está ativado e se o tempo de duração expirou
-  if (modeOn && !updatedByToggle && activatedBySchedule && ((millis() - modeActivationStartTime) >= modeActivationDuration)) {
+  if (activatedBySchedule && ((millis() - modeActivationStartTime) >= modeActivationDuration)) {
     modeOn = false;
     activatedBySchedule = false;
     digitalWrite(MODE_BUILTIN, modeOn);
     Serial.println("Modo desativado após o tempo programado.");
   }
+  
 }
 
 String convertToHHMM(String formattedTime) {
@@ -298,28 +304,6 @@ void setSchedule(Request &req, Response &res) {
   }
 }
 
-// void getChartData(Request &req, Response &res) {
-//   // Criar um objeto DynamicJsonDocument para armazenar os dados do gráfico
-//   DynamicJsonDocument chartData(1024);
-
-//   // Preencher o objeto com dados reais do seu mapa (sensorHourlyAverageMap)
-//   for (const auto &entry : sensorHourlyAverageMap) {
-//     chartData[entry.first] = entry.second;
-//   }
-
-//   // Serializar o objeto JSON para uma string
-//   String jsonString;
-//   serializeJson(chartData, jsonString);
-
-//   // Configurar o cabeçalho da resposta para indicar que é JSON
-//   res.set("Content-Type", "application/json");
-
-//   // Enviar os dados como resposta JSON
-//   Serial.print("o que tá indo pra lá: ");
-//   Serial.println(jsonString);
-//   res.print(jsonString);
-// }
-
 void getChartData(Request &req, Response &res) {
   // Criar um objeto DynamicJsonDocument para armazenar os dados do gráfico
   DynamicJsonDocument chartData(1024);
@@ -378,10 +362,10 @@ void readMode(Request &req, Response &res) {
 void updateMode(Request &req, Response &res) {
   String requestBody = req.readString();
   bool newMode = (requestBody.toInt() != 0);
+  activatedBySchedule = false;
 
-  // Update the mode state
+  // Atualizar o estado do modo
   modeOn = newMode;
-  updatedByToggle = true;
   digitalWrite(MODE_BUILTIN, modeOn);
 
   Serial.println("Modo atualizado via requisição HTTP.");
