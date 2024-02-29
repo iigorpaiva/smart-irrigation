@@ -8,8 +8,8 @@
 #include <vector>
 #include <ArduinoJson.h>
 #include <algorithm>
-
 #include <map>
+#include <ESPmDNS.h>
 
 #define AVERAGE_CALCULATION_INTERVAL 60000  // Intervalo de cálculo da média a cada 1 minuto
 #define PRINT_MAP_INTERVAL 5000  // Intervalo de impressão do mapa a cada 5 segundos
@@ -48,6 +48,8 @@ std::vector<String> scheduleListESP32;
 
 std::map<String, float> sensorHourlyAverageMap;
 
+const char* host = "autoirrigacao.local";
+
 void setup() {
   pinMode(MODE_BUILTIN, OUTPUT);
 
@@ -69,6 +71,13 @@ void setup() {
   app.use(staticFiles());
 
   server.begin();
+
+  if (MDNS.begin("autoirrigacao.local")) {
+    MDNS.addService("http", "tcp", 80);  // Adiciona o tipo de serviço HTTP
+    Serial.println("mDNS responder iniciado");
+  } else {
+    Serial.println("Erro ao iniciar o mDNS responder");
+  }
 
   Serial.println("Informações sobre a memória Flash:");
   Serial.printf("Tamanho total: %.2f MB\n", ESP.getFlashChipSize() / (1024.0 * 1024.0));

@@ -51,6 +51,10 @@ const HumidityChart = () => {
               values.push(value);
             });
 
+            // Inverte a ordem dos arrays para que as horas antigas apareçam à esquerda
+            labels.reverse();
+            values.reverse();
+
             // Crie o gráfico usando os dados obtidos do servidor
             const ctx = document.getElementById('humidity-chart').getContext('2d');
             const newChart = new Chart(ctx, {
