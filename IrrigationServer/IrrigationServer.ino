@@ -57,6 +57,13 @@ void setup() {
 
   connectToWiFi();
 
+  if(!MDNS.begin(host)){
+    Serial.println("Erro ao configurar DNS!");
+    while(1){
+      delay(1000);
+    }
+  }
+
   app.get("/mode", &readMode);
   app.get("/moisture", &getMoisture);
   app.get("/duration", &getDuration);
@@ -71,8 +78,8 @@ void setup() {
   app.use(staticFiles());
 
   server.begin();
-
-  if (MDNS.begin("autoirrigacao.local")) {
+  
+  if (MDNS.begin("autoirrigacao")) {
     MDNS.addService("http", "tcp", 80);  // Adiciona o tipo de serviço HTTP
     Serial.println("mDNS responder iniciado");
   } else {
