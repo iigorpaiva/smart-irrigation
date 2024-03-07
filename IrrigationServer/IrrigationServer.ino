@@ -231,13 +231,17 @@ void calculateAverageSensorHour() {
 }
 
 void checkScheduledMode() {
-
   static unsigned long lastScheduledCheckTime = 0;
-  unsigned long elapsedTimeSinceLastCheck = millis() - lastScheduledCheckTime;
+  static unsigned long lastMinute = 0;  // Variável para armazenar o minuto anterior
 
-  if (elapsedTimeSinceLastCheck >= CHECKING_SCHEDULED_ACTIVATION_INTERVAL) {
-    lastScheduledCheckTime = millis();
+  unsigned long currentMillis = millis();
+  unsigned long currentMinute = timeClient.getMinutes();
 
+  // Verificar se houve uma mudança no minuto
+  if (currentMinute != lastMinute) {
+    lastMinute = currentMinute;
+
+    // Realizar a lógica de verificação apenas na virada dos minutos
     String currentTime = convertToHHMM(timeClient.getFormattedTime());
 
     // Verificar se o modo está desativado manualmente
@@ -249,23 +253,21 @@ void checkScheduledMode() {
         Serial.println("Modo ativado conforme programação de horário.");
 
         // Configurar o tempo de início e duração
-        modeActivationStartTime = millis();
+        modeActivationStartTime = currentMillis;
         modeActivationDuration = programmedDuration * 60 * 1000; // Convertendo minutos para milissegundos
 
         activatedBySchedule = true;
-        
       }
     }
-  } 
+  }
 
   // Verificar se o modo está ativado e se o tempo de duração expirou
-  if (activatedBySchedule && ((millis() - modeActivationStartTime) >= modeActivationDuration)) {
+  if (activatedBySchedule && ((currentMillis - modeActivationStartTime) >= modeActivationDuration)) {
     modeOn = false;
     activatedBySchedule = false;
     digitalWrite(MODE_BUILTIN, modeOn);
     Serial.println("Modo desativado após o tempo programado.");
   }
-  
 }
 
 String convertToHHMM(String formattedTime) {
