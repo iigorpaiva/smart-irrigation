@@ -49,6 +49,8 @@ const HumidityChart = () => {
               // Adiciona aos arrays
               labels.push(formattedTime);
               values.push(value);
+
+              
             });
 
             // Inverte a ordem dos arrays para que as horas antigas apareçam à esquerda

@@ -10,8 +10,10 @@
 #include <algorithm>
 #include <map>
 #include <ESPmDNS.h>
+#include <WiFiManager.h> 
 
 #define AVERAGE_CALCULATION_INTERVAL 60000  // Intervalo de cálculo da média a cada 1 minuto
+#define CHECKING_SCHEDULED_ACTIVATION_INTERVAL 60000  // Intervalo de checagem para ativação dos horários programados a cada 1 minuto
 #define PRINT_MAP_INTERVAL 5000  // Intervalo de impressão do mapa a cada 5 segundos
 
 #define MAX_MAP_SIZE 12
@@ -55,7 +57,18 @@ void setup() {
 
   Serial.begin(115200);
 
-  connectToWiFi();
+  WiFiManager wifiManager;
+
+  wifiManager.resetSettings();
+
+  wifiManager.setConfigPortalTimeout(60);
+
+  if (!wifiManager.autoConnect("AutoIrrigacaoAP")) {
+    Serial.println("Falha na conexão e tempo limite atingido, reiniciando...");
+    ESP.restart();
+  }
+
+  // connectToWiFi();
 
   if(!MDNS.begin(host)){
     Serial.println("Erro ao configurar DNS!");
@@ -81,7 +94,7 @@ void setup() {
   
   if (MDNS.begin("autoirrigacao")) {
     MDNS.addService("http", "tcp", 80);  // Adiciona o tipo de serviço HTTP
-    Serial.println("mDNS responder iniciado");
+    // Serial.println("mDNS responder iniciado");
   } else {
     Serial.println("Erro ao iniciar o mDNS responder");
   }
@@ -106,12 +119,12 @@ void loop() {
   checkScheduledMode();
 
   // Verificar e reconectar se necessário a cada 10 segundos
-  if (WiFi.status() != WL_CONNECTED) {
-    if (currentMillis - lastConnectionCheckTime >= connectionCheckInterval) {
-      lastConnectionCheckTime = currentMillis;
-      connectToWiFi();
-    }
-  }
+  // if (WiFi.status() != WL_CONNECTED) {
+  //   if (currentMillis - lastConnectionCheckTime >= connectionCheckInterval) {
+  //     lastConnectionCheckTime = currentMillis;
+  //     connectToWiFi();
+  //   }
+  // }
 
   // Verificar se há um cliente disponível
   if (server.hasClient()) {
@@ -154,7 +167,10 @@ void calculateAverageSensorHour() {
   static unsigned long lastAverageCalculationTime = 0;
   static float sumMoisture = 0;
   static int numReadings = 0;
+  String receivedHour;
   String currentHour;
+  String currentHourWithMinutes;
+  String lastHour;
 
   unsigned long currentMillis = millis();
 
@@ -162,20 +178,22 @@ void calculateAverageSensorHour() {
   if (currentMillis - lastAverageCalculationTime >= AVERAGE_CALCULATION_INTERVAL) {
     // Calcular a média e armazenar no mapa
     if (numReadings > 0) {
+      receivedHour = timeClient.getFormattedTime();
+
+      currentHourWithMinutes = convertToHHMM(receivedHour);
 
       // Remover os minutos da hora para salvar apenas a hora no mapa
-      currentHour = convertToHHMM0(timeClient.getFormattedTime());
-      Serial.print("ANTES: ");
-      Serial.println(currentHour);
+      currentHour = convertToHHMM0(receivedHour);
+
+      // Serial.print("SOMENTE A HORA: ");
+      // Serial.println(currentHour);
+
+      // Serial.print("HORA COM MINUTOS: ");
+      // Serial.println(currentHourWithMinutes);
 
       currentHour.remove(3, 2); // Remover minutos
       currentHour.remove(6, 5); // Remover segundos
       currentHour += ":00:00.000Z";
-      Serial.print("DEPOIS: ");
-      Serial.println(currentHour);
-
-      // Serial.print("current hour: ");
-      // Serial.println(currentHour);
 
       // Verificar se já existe uma entrada para a hora atual no mapa
       auto it = sensorHourlyAverageMap.find(currentHour);
@@ -193,9 +211,15 @@ void calculateAverageSensorHour() {
     lastAverageCalculationTime = currentMillis;
 
     // Verificar e ajustar o tamanho do mapa para o máximo permitido
-    while (sensorHourlyAverageMap.size() > MAX_MAP_SIZE) {
-      sensorHourlyAverageMap.erase(sensorHourlyAverageMap.begin());
-    }
+    // while (sensorHourlyAverageMap.size() > MAX_MAP_SIZE) {
+    //   sensorHourlyAverageMap.erase(sensorHourlyAverageMap.begin());
+    // }
+  }
+
+  // Verificar se é meia-noite e limpar a lista se necessário
+  if (currentHourWithMinutes == "00:00" | currentHourWithMinutes == "00:01") {
+    sensorHourlyAverageMap.clear();
+    Serial.println("Lista reiniciada pois é meia-noite.");
   }
 
   // Fazer a leitura do sensor a cada minuto e adicionar ao cálculo da média
@@ -207,22 +231,30 @@ void calculateAverageSensorHour() {
 }
 
 void checkScheduledMode() {
-  String currentTime = convertToHHMM(timeClient.getFormattedTime());
 
-  // Verificar se o modo está desativado manualmente
-  if (!modeOn) {
-    if (std::find(scheduleListESP32.begin(), scheduleListESP32.end(), currentTime) != scheduleListESP32.end()) {
-      // O tempo atual está na lista de horários programados
-      modeOn = true;
-      digitalWrite(MODE_BUILTIN, modeOn);
-      Serial.println("Modo ativado conforme programação de horário.");
+  static unsigned long lastScheduledCheckTime = 0;
+  unsigned long elapsedTimeSinceLastCheck = millis() - lastScheduledCheckTime;
 
-      // Configurar o tempo de início e duração
-      modeActivationStartTime = millis();
-      modeActivationDuration = programmedDuration * 60 * 1000; // Convertendo minutos para milissegundos
+  if (elapsedTimeSinceLastCheck >= CHECKING_SCHEDULED_ACTIVATION_INTERVAL) {
+    lastScheduledCheckTime = millis();
 
-      activatedBySchedule = true;
-      
+    String currentTime = convertToHHMM(timeClient.getFormattedTime());
+
+    // Verificar se o modo está desativado manualmente
+    if (!modeOn) {
+      if (std::find(scheduleListESP32.begin(), scheduleListESP32.end(), currentTime) != scheduleListESP32.end()) {
+        // O tempo atual está na lista de horários programados
+        modeOn = true;
+        digitalWrite(MODE_BUILTIN, modeOn);
+        Serial.println("Modo ativado conforme programação de horário.");
+
+        // Configurar o tempo de início e duração
+        modeActivationStartTime = millis();
+        modeActivationDuration = programmedDuration * 60 * 1000; // Convertendo minutos para milissegundos
+
+        activatedBySchedule = true;
+        
+      }
     }
   } 
 
