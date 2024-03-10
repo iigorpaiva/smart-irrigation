@@ -10,7 +10,7 @@
 #include <algorithm>
 #include <map>
 #include <ESPmDNS.h>
-#include <WiFiManager.h> 
+// #include <WiFiManager.h> 
 
 #define AVERAGE_CALCULATION_INTERVAL 60000  // Intervalo de cálculo da média a cada 1 minuto
 #define CHECKING_SCHEDULED_ACTIVATION_INTERVAL 60000  // Intervalo de checagem para ativação dos horários programados a cada 1 minuto
@@ -57,25 +57,25 @@ void setup() {
 
   Serial.begin(115200);
 
-  WiFiManager wifiManager;
+  // WiFiManager wifiManager;
 
-  wifiManager.resetSettings();
+  // wifiManager.resetSettings();
 
-  wifiManager.setConfigPortalTimeout(60);
+  // wifiManager.setConfigPortalTimeout(60);
 
-  if (!wifiManager.autoConnect("AutoIrrigacaoAP")) {
-    Serial.println("Falha na conexão e tempo limite atingido, reiniciando...");
-    ESP.restart();
-  }
+  // if (!wifiManager.autoConnect("AutoIrrigacaoAP")) {
+  //   Serial.println("Falha na conexão e tempo limite atingido, reiniciando...");
+  //   ESP.restart();
+  // }
 
-  // connectToWiFi();
+  connectToWiFi();
 
-  if(!MDNS.begin(host)){
-    Serial.println("Erro ao configurar DNS!");
-    while(1){
-      delay(1000);
-    }
-  }
+  // if(!MDNS.begin(host)){
+  //   Serial.println("Erro ao configurar DNS!");
+  //   while(1){
+  //     delay(1000);
+  //   }
+  // }
 
   app.get("/mode", &readMode);
   app.get("/moisture", &getMoisture);
@@ -119,12 +119,12 @@ void loop() {
   checkScheduledMode();
 
   // Verificar e reconectar se necessário a cada 10 segundos
-  // if (WiFi.status() != WL_CONNECTED) {
-  //   if (currentMillis - lastConnectionCheckTime >= connectionCheckInterval) {
-  //     lastConnectionCheckTime = currentMillis;
-  //     connectToWiFi();
-  //   }
-  // }
+  if (WiFi.status() != WL_CONNECTED) {
+    if (currentMillis - lastConnectionCheckTime >= connectionCheckInterval) {
+      lastConnectionCheckTime = currentMillis;
+      connectToWiFi();
+    }
+  }
 
   // Verificar se há um cliente disponível
   if (server.hasClient()) {
@@ -141,7 +141,7 @@ void loop() {
 
   calculateAverageSensorHour();
 
-   // Chamar a função para imprimir o mapa a cada 5 segundos
+  // //  Chamar a função para imprimir o mapa a cada 5 segundos
   // if (currentMillisWifi - lastPrintMapTime >= PRINT_MAP_INTERVAL) {
   //   lastPrintMapTime = currentMillisWifi;
   //   printSensorHourlyAverageMap();
@@ -180,31 +180,28 @@ void calculateAverageSensorHour() {
     if (numReadings > 0) {
       receivedHour = timeClient.getFormattedTime();
 
-      currentHourWithMinutes = convertToHHMM(receivedHour);
+      // Verificar se a hora recebida faz sentido (por exemplo, não é 03:00 quando não deveria ser)
+      if (isValidTime(receivedHour)) {
+        currentHourWithMinutes = convertToHHMM(receivedHour);
 
-      // Remover os minutos da hora para salvar apenas a hora no mapa
-      currentHour = convertToHHMM0(receivedHour);
+        // Remover os minutos da hora para salvar apenas a hora no mapa
+        currentHour = convertToHHMM0(receivedHour);
 
-      // Serial.print("SOMENTE A HORA: ");
-      // Serial.println(currentHour);
+        currentHour.remove(3, 2); // Remover minutos
+        currentHour.remove(6, 5); // Remover segundos
+        currentHour += ":00:00.000Z";
 
-      // Serial.print("HORA COM MINUTOS: ");
-      // Serial.println(currentHourWithMinutes);
-
-      currentHour.remove(3, 2); // Remover minutos
-      currentHour.remove(6, 5); // Remover segundos
-      currentHour += ":00:00.000Z";
-
-      // Verificar se já existe uma entrada para a hora atual no mapa
-      auto it = sensorHourlyAverageMap.find(currentHour);
-      if (it != sensorHourlyAverageMap.end()) {
-        // Se existir, atualizar a média
-        it->second = sumMoisture / numReadings;
-        Serial.print("média atualizada: ");
-        Serial.println(sensorHourlyAverageMap[currentHour]);
-      } else {
-        // Se não existir, adicionar uma nova entrada no mapa
-        sensorHourlyAverageMap[currentHour] = sumMoisture / numReadings;
+        // Verificar se já existe uma entrada para a hora atual no mapa
+        auto it = sensorHourlyAverageMap.find(currentHour);
+        if (it != sensorHourlyAverageMap.end()) {
+          // Se existir, atualizar a média
+          it->second = sumMoisture / numReadings;
+          Serial.print("Média atualizada: ");
+          Serial.println(sensorHourlyAverageMap[currentHour]);
+        } else {
+          // Se não existir, adicionar uma nova entrada no mapa
+          sensorHourlyAverageMap[currentHour] = sumMoisture / numReadings;
+        }
       }
     }
 
@@ -217,7 +214,7 @@ void calculateAverageSensorHour() {
   }
 
   // Verificar se é meia-noite e limpar a lista se necessário
-  if (currentHourWithMinutes == "00:00" | currentHourWithMinutes == "00:01") {
+  if (currentHourWithMinutes == "00:00" || currentHourWithMinutes == "00:01") {
     sensorHourlyAverageMap.clear();
     Serial.println("Lista reiniciada pois é meia-noite.");
   }
@@ -228,6 +225,36 @@ void calculateAverageSensorHour() {
     sumMoisture += moistureReading;
     numReadings++;
   }
+}
+
+// Essa função checa se a hora é válida
+// Em alguns momentos aleatórios, a hora vinha errada sempre marcando 3 horas da manhã por alguns minutos 
+// Logo depois essa hora voltava ao normal, seguindo a sequência dos horários
+// A solução é checar se a hora que está vindo é igual a última hora registrada da lista ou se é uma hora que vem depois da última 
+bool isValidTime(String receivedHour) {
+  // Extrair as horas e minutos do formato HH:MM:SS
+  int receivedHours = receivedHour.substring(0, 2).toInt();
+
+  // Verificar se a lista de horários programados está vazia
+  if (scheduleListESP32.empty()) {
+    // Se a lista estiver vazia, a hora recebida é considerada válida
+    return true;
+  }
+
+  // Obter a última hora na lista
+  String lastScheduledHour = scheduleListESP32.back();
+
+  // Extrair as horas e minutos da última hora na lista
+  int lastScheduledHours = lastScheduledHour.substring(0, 2).toInt();
+
+  // Verificar se a hora recebida é igual à última hora ou se é a próxima hora após a última na lista
+  if ((receivedHours == lastScheduledHours) || receivedHours > (lastScheduledHours + 1)) {
+    // Se a hora recebida for igual à última hora ou a próxima hora, considera como válida
+    return true;
+  }
+
+  // Se a hora recebida não atender às condições, considera como inválida
+  return false;
 }
 
 void checkScheduledMode() {
