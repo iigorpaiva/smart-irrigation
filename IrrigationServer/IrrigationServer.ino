@@ -27,6 +27,7 @@ WiFiServer server(80);
 Application app;
 
 bool modeOn;
+bool sensorMode;
 bool activatedBySchedule = false;
 
 // Define NTP Client to get time
@@ -78,12 +79,14 @@ void setup() {
   // }
 
   app.get("/mode", &readMode);
+  app.get("/sensorMode", &readSensorMode);
   app.get("/moisture", &getMoisture);
   app.get("/duration", &getDuration);
   app.get("/schedule", &readSchedule);
   app.get("/chartData", &getChartData);
   
   app.put("/mode", &updateMode);
+  app.put("/sensorMode", &updateSensorMode);
 
   app.post("/duration", &setDuration);
   app.post("/schedule", &setSchedule);
@@ -235,24 +238,30 @@ bool isValidTime(String receivedHour) {
   // Extrair as horas e minutos do formato HH:MM:SS
   int receivedHours = receivedHour.substring(0, 2).toInt();
 
-  // Verificar se a lista de horários programados está vazia
-  if (scheduleListESP32.empty()) {
-    // Se a lista estiver vazia, a hora recebida é considerada válida
+  // Verificar se o mapa de médias horárias do sensor está vazio
+  if (sensorHourlyAverageMap.empty()) {
+    Serial.println("Validado pelo mapa de médias horárias vazio");
+    // Se o mapa estiver vazio, a hora recebida é considerada válida
     return true;
   }
 
-  // Obter a última hora na lista
-  String lastScheduledHour = scheduleListESP32.back();
+  // Obter a última hora no mapa (última entrada)
+  auto lastEntry = sensorHourlyAverageMap.rbegin();
+  String lastHour = lastEntry->first;
 
-  // Extrair as horas e minutos da última hora na lista
-  int lastScheduledHours = lastScheduledHour.substring(0, 2).toInt();
+  // Extrair as horas e minutos da última hora no mapa
+  int lastHourHours = lastHour.substring(0, 2).toInt();
 
-  // Verificar se a hora recebida é igual à última hora ou se é a próxima hora após a última na lista
-  if ((receivedHours == lastScheduledHours) || receivedHours > (lastScheduledHours + 1)) {
+  // Verificar se a hora recebida é igual à última hora ou se é a próxima hora após a última no mapa
+  if ((receivedHours == lastHourHours) || receivedHours == (lastHourHours + 1)) {
     // Se a hora recebida for igual à última hora ou a próxima hora, considera como válida
+    Serial.print("A última hora no mapa é: ");
+    Serial.println(lastHourHours);
+    Serial.print("A hora atual é: ");
+    Serial.println(receivedHours);
     return true;
   }
-
+  Serial.println("False retornado!");
   // Se a hora recebida não atender às condições, considera como inválida
   return false;
 }
@@ -400,7 +409,7 @@ void getChartData(Request &req, Response &res) {
   res.set("Content-Type", "application/json");
 
   // Enviar os dados como resposta JSON
-  Serial.print("o que tá indo pra lá: ");
+  // Serial.print("o que tá indo pra lá: ");
   Serial.println(jsonString);
 
   res.print(jsonString);
@@ -436,6 +445,10 @@ void readMode(Request &req, Response &res) {
   res.print(modeOn);
 }
 
+void readSensorMode(Request &req, Response &res) {
+  res.print(sensorMode);
+}
+
 void updateMode(Request &req, Response &res) {
   String requestBody = req.readString();
   bool newMode = (requestBody.toInt() != 0);
@@ -446,6 +459,17 @@ void updateMode(Request &req, Response &res) {
   digitalWrite(MODE_BUILTIN, modeOn);
 
   Serial.println("Modo atualizado via requisição HTTP.");
+
+  readMode(req, res);  // Atualizar a resposta com o estado atual do modo
+}
+
+void updateSensorMode(Request &req, Response &res) {
+  String requestBody = req.readString();
+  bool newMode = (requestBody.toInt() != 0);
+
+  // Atualizar o estado do modo
+  sensorMode = newMode;
+  // Serial.println("Modo do sensor atualizado via requisição HTTP.");
 
   readMode(req, res);  // Atualizar a resposta com o estado atual do modo
 }

@@ -7,24 +7,45 @@ import TimePickerComponent from './components/time-picker/time-picker';
 import HumidityChart from './components/chart/irrigation-chart';
 
 const App = () => {
-  const [ledOn, setLedOn] = useState(false);
-  const [updating, setUpdating] = useState(false);
+  const [modeOn, setModeOn] = useState(false);
+  const [updatingMode, setUpdatingMode] = useState(false);
   const [sensorData, setSensorData] = useState(null);
+  const [sensorMode, setSensorMode] = useState(false); 
+  const [updatingSensorMode, setUpdatingSensorMode] = useState(false);
 
-  const setLedState = (state) => {
-    setLedOn(state !== '0');
-    setUpdating(false);
+  const setModeState = (state) => {
+    setModeOn(state !== '0');
+    setUpdatingMode(false);
   };
 
-  const handleStateChange = (ledOn) => {
-    setUpdating(true);
+  const setSensorModeState = (state) => {
+    setSensorMode(state !== '0');
+    setUpdatingSensorMode(false);
+  };
 
-    fetch('/mode', { method: 'PUT', body: ledOn ? '0' : '1', timeout: 1000 })
+  const handleStateChange = (modeOn) => {
+    setUpdatingMode(true);
+
+    fetch('/mode', { method: 'PUT', body: modeOn ? '0' : '1', timeout: 1000 })
       .then(response => response.text())
-      .then(state => setLedState(state))
+      .then(state => setModeState(state))
       .catch(error => {
         console.error('Erro no request do mode:', error);
-        setUpdating(false);
+        setUpdatingMode(false);
+      });
+  };
+
+  const handleSensorModeChange = (sensorMode) => {
+    setUpdatingSensorMode(true);
+
+    fetch('/sensorMode', { method: 'PUT', body: sensorMode ? '0' : '1', timeout: 1000 })
+      .then(response => response.text())
+      .then(sensorMode => {
+        setSensorModeState(sensorMode);
+      })
+      .catch(error => {
+        console.error('Erro no request do sensorMode:', error);
+        setSensorModeState(false);
       });
   };
 
@@ -41,9 +62,18 @@ const App = () => {
   const checkModeStatus = () => {
     fetch('/mode')
       .then(response => response.text())
-      .then(state => setLedState(state))
+      .then(state => setModeState(state))
       .catch(error => {
         console.error('Erro ao obter dados do rele:', error);
+      });
+  };
+
+  const checkSensorModeStatus = () => {
+    fetch('/sensorMode')
+      .then(response => response.text())
+      .then(state => setSensorModeState(state))
+      .catch(error => {
+        console.error('Erro ao obter dados do modo do sensor:', error);
       });
   };
 
@@ -53,6 +83,7 @@ const App = () => {
     const intervalID = setInterval(() => {
       checkModeStatus();
       fetchMoistureData();
+      checkSensorModeStatus();
     }, 1000);
 
     // Limpeza quando o componente é desmontado
@@ -63,7 +94,7 @@ const App = () => {
     <div>
       <div className="main">
         <div className="container row card-container">
-          <Card title="Modo da Irrigação" body={<IrrigationMode value={ledOn} onToggle={value => handleStateChange(value)} disabled={updating} />} />
+          <Card title="Modo da Irrigação" body={<IrrigationMode value={modeOn} onToggle={value => handleStateChange(value)} disabled={updatingMode} />} />
           <Card title="Agendamento" body={<TimePickerComponent />} />
           <Card title="Umidade do Solo" body={<MoistureSensor sensorData={sensorData} />} />
           <Card title="Monitoramento" body={<HumidityChart />} />

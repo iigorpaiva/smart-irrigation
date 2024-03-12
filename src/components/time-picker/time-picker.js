@@ -137,7 +137,7 @@ const TimePickerComponent = () => {
       timePickers.push(
         <div key={i} className="time-picker-item">
           <div className="time-picker-label">
-            <h3>Horário {i + 1}:</h3>
+            <h3>horário {i + 1}:</h3>
           </div>
           <div className="time-picker-input">
             <TimePicker
@@ -156,7 +156,7 @@ const TimePickerComponent = () => {
     <div className="time-picker-container">
       <div className="time-picker-container-in-line">
         <div className="dropdown-container">
-          <h3>Número de Irrigações diárias: </h3>
+          <h3>número de irrigações diárias: </h3>
           <select id="numTimePickers" value={numTimePickers} onChange={handleNumTimePickersChange}>
             {[1, 2, 3, 4].map((value) => (
               <option key={value} value={value}>
@@ -166,7 +166,7 @@ const TimePickerComponent = () => {
           </select>
         </div>
         <div className="dropdown-container">
-          <h3>Duração das Irrigações:</h3>
+          <h3>duração das irrigações:</h3>
           <select id="irrigationDuration" value={irrigationDuration} onChange={handleIrrigationDurationChange}>
             {[15, 30, 45, 60, 75, 90, 105, 120].map((value) => (
               <option key={value} value={value}>
