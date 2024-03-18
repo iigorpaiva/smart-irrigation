@@ -94,7 +94,7 @@ const App = () => {
     <div>
       <div className="main">
         <div className="container row card-container">
-          <Card title="Modo da Irrigação" body={<IrrigationMode value={modeOn} onToggle={value => handleStateChange(value)} disabled={updatingMode} />} />
+          <Card title="Modo da Irrigação" body={<IrrigationMode modeValue={modeOn} sensorModeValue={sensorMode} onModeToggle={handleStateChange} onSensorModeToggle={handleSensorModeChange} disabled={updatingMode || updatingSensorMode} />} />
           <Card title="Agendamento" body={<TimePickerComponent />} />
           <Card title="Umidade do Solo" body={<MoistureSensor sensorData={sensorData} />} />
           <Card title="Monitoramento" body={<HumidityChart />} />

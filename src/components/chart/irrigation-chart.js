@@ -51,9 +51,9 @@ const HumidityChart = () => {
             },
             ticks: {
               beginAtZero: true,
-              suggestedMax: 100, // Definindo o máximo como 100
-              suggestedMin: 0,
-              stepSize: 10
+              max: 100,         // Definir o máximo explicitamente como 100
+              min: 0,           // Definir o mínimo explicitamente como 0
+              stepSize: 10,     // Opcional: definir um incremento de escala
             },
           },
         },

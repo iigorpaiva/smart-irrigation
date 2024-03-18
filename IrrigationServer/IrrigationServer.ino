@@ -18,7 +18,7 @@
 
 #define MAX_MAP_SIZE 12
 
-#define WIFI_SSID "brisa-2648486-EXT"
+#define WIFI_SSID "brisa-2648486"
 #define WIFI_PASSWORD "1hrgpa3r"
 #define MODE_BUILTIN 26
 #define AOUT_PIN 33
@@ -203,7 +203,7 @@ void calculateAverageSensorHour() {
           it->second = sumMoisture / numReadings;
           Serial.print("Média atualizada: ");
           Serial.println(sensorHourlyAverageMap[currentHour]);
-          Serial.print("")
+          Serial.print("");
         } else {
           // Se não existir, adicionar uma nova entrada no mapa
           sensorHourlyAverageMap[currentHour] = sumMoisture / numReadings;
@@ -283,19 +283,25 @@ void checkScheduledMode() {
     // Realizar a lógica de verificação apenas na virada dos minutos
     String currentTime = convertToHHMM(timeClient.getFormattedTime());
 
-    // Verificar se o modo está desativado manualmente
-    if (!modeOn) {
-      if (std::find(scheduleListESP32.begin(), scheduleListESP32.end(), currentTime) != scheduleListESP32.end()) {
-        // O tempo atual está na lista de horários programados
-        modeOn = true;
-        digitalWrite(MODE_BUILTIN, modeOn);
-        Serial.println("Modo ativado conforme programação de horário.");
+    // Verificar se sensorMode é true
+    if (sensorMode) {
+      // Verificar se o modo está desativado manualmente
+      if (!modeOn) {
+        // Verificar se o valor retornado pelo readMoistureSensor() é abaixo de 60%
+        if (readMoistureSensor() < 60) {
+          if (std::find(scheduleListESP32.begin(), scheduleListESP32.end(), currentTime) != scheduleListESP32.end()) {
+            // O tempo atual está na lista de horários programados
+            modeOn = true;
+            digitalWrite(MODE_BUILTIN, modeOn);
+            Serial.println("Modo ativado conforme programação de horário e umidade abaixo de 60%.");
 
-        // Configurar o tempo de início e duração
-        modeActivationStartTime = currentMillis;
-        modeActivationDuration = programmedDuration * 60 * 1000; // Convertendo minutos para milissegundos
+            // Configurar o tempo de início e duração
+            modeActivationStartTime = currentMillis;
+            modeActivationDuration = programmedDuration * 60 * 1000; // Convertendo minutos para milissegundos
 
-        activatedBySchedule = true;
+            activatedBySchedule = true;
+          }
+        }
       }
     }
   }
@@ -308,6 +314,7 @@ void checkScheduledMode() {
     Serial.println("Modo desativado após o tempo programado.");
   }
 }
+
 
 String convertToHHMM(String formattedTime) {
   int separatorIndex = formattedTime.indexOf(':');
@@ -485,7 +492,6 @@ void updateSensorMode(Request &req, Response &res) {
   // Atualizar o estado do modo
   sensorMode = newMode;
   // Serial.println("Modo do sensor atualizado via requisição HTTP.");
-
   readMode(req, res);  // Atualizar a resposta com o estado atual do modo
 }
 
