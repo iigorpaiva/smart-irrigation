@@ -43,10 +43,10 @@ const TimePickerComponent = () => {
       fetch('/schedule', { method: 'GET' })
         .then(response => response.text())
         .then(schedule => {
-          console.log("HORÁRIOS: ", schedule);
+          // console.log("HORÁRIOS: ", schedule);
       
-          // Verificar se o schedule está nulo ou indefinido
-          if (schedule == null || schedule.trim().toLowerCase() === 'null' || schedule === "Not Found") {
+          // Verificar se o schedule está nulo, vazio ou indefinido
+          if (!schedule || schedule.trim() === '' || schedule == null || schedule.trim().toLowerCase() === 'null' || schedule === "Not Found") {
 
             // Trate o caso especial aqui, como definir um valor padrão para receivedScheduleList
             const receivedScheduleList = []; // ou qualquer valor padrão desejado
@@ -55,7 +55,7 @@ const TimePickerComponent = () => {
             // Caso normal: processar o schedule recebido
             const receivedScheduleList = schedule.split('\n').map(time => ({ time: time.trim() }));
             const filteredScheduleList = receivedScheduleList.filter(item => item.time !== '');
-            console.log("FILTRADOS: ", filteredScheduleList);
+            // console.log("FILTRADOS: ", filteredScheduleList);
       
             // Atualizar o estado de scheduleList no componente
             setScheduleList(receivedScheduleList);
@@ -115,7 +115,7 @@ const TimePickerComponent = () => {
       fetch('/schedule', { method: 'POST', body: JSON.stringify(validTimesList) })
         .then(response => response.text())
         .then(data => {
-          console.log('Resposta do servidor:', data);
+          // console.log('Resposta do servidor:', data);
         })
         .catch(error => {
           console.error('Erro no POST do schedule:', error);

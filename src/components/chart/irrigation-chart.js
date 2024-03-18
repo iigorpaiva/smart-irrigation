@@ -51,8 +51,9 @@ const HumidityChart = () => {
             },
             ticks: {
               beginAtZero: true,
-              max: 100,
-              min: 0,
+              suggestedMax: 100, // Definindo o máximo como 100
+              suggestedMin: 0,
+              stepSize: 10
             },
           },
         },
@@ -78,28 +79,38 @@ const HumidityChart = () => {
       const response = await fetch('/chartData', { method: 'GET' });
       const charData = await response.text();
       const parsedData = JSON.parse(charData);
-
-      const labels = [];
-      const values = [];
-
-      Object.entries(parsedData).forEach(([hour, value]) => {
-        const currentTime = new Date();
-        currentTime.setHours(parseInt(hour));
-        const formattedTime = currentTime.toISOString();
-
-        labels.push(formattedTime);
-        values.push(value);
-      });
-
-      labels.reverse();
-      values.reverse();
-
-      // Cria ou atualiza o gráfico
-      createChart(labels, values);
+  
+      if (parsedData && typeof parsedData === 'object') {
+        const labels = [];
+        const values = [];
+  
+        Object.entries(parsedData).forEach(([hour, value]) => {
+          const currentTime = new Date();
+          currentTime.setHours(parseInt(hour));
+          const formattedTime = currentTime.toISOString();
+  
+          labels.push(formattedTime);
+          values.push(value);
+        });
+  
+        labels.reverse();
+        values.reverse();
+  
+        // Verifica se os dados são válidos antes de criar o gráfico
+        if (labels.length > 0 && values.length > 0) {
+          // Cria ou atualiza o gráfico
+          createChart(labels, values);
+        } else {
+          console.error('Dados recebidos do servidor são inválidos:', parsedData);
+        }
+      } else {
+        console.error('Dados recebidos do servidor são inválidos:', parsedData);
+      }
     } catch (error) {
       console.error('Erro ao buscar dados do servidor:', error);
     }
   };
+  
 
   useEffect(() => {
     fetchData();

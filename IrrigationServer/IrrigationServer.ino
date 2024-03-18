@@ -179,13 +179,15 @@ void calculateAverageSensorHour() {
 
   // Verificar se é hora de calcular a média
   if (currentMillis - lastAverageCalculationTime >= AVERAGE_CALCULATION_INTERVAL) {
+
+    receivedHour = timeClient.getFormattedTime();
+    currentHourWithMinutes = convertToHHMM(receivedHour);
+
     // Calcular a média e armazenar no mapa
     if (numReadings > 0) {
-      receivedHour = timeClient.getFormattedTime();
 
       // Verificar se a hora recebida faz sentido (por exemplo, não é 03:00 quando não deveria ser)
       if (isValidTime(receivedHour)) {
-        currentHourWithMinutes = convertToHHMM(receivedHour);
 
         // Remover os minutos da hora para salvar apenas a hora no mapa
         currentHour = convertToHHMM0(receivedHour);
@@ -201,6 +203,7 @@ void calculateAverageSensorHour() {
           it->second = sumMoisture / numReadings;
           Serial.print("Média atualizada: ");
           Serial.println(sensorHourlyAverageMap[currentHour]);
+          Serial.print("")
         } else {
           // Se não existir, adicionar uma nova entrada no mapa
           sensorHourlyAverageMap[currentHour] = sumMoisture / numReadings;
@@ -349,16 +352,16 @@ void setDuration(Request &req, Response &res){
 
 void readSchedule(Request &req, Response &res) {
   if (scheduleListESP32.empty()) {
-    Serial.println("TÁVAZIA!!!");
-    res.print("");  // Se a lista estiver vazia, enviar uma string vazia como resposta
+    // Se a lista de horários estiver vazia, retorne uma resposta vazia
+    res.end();
     return;
   }
 
+  // Caso contrário, retorne os horários programados normalmente
   for (const auto &time : scheduleListESP32) {
     res.print(!time.isEmpty() ? time + "\n" : "");
   }
 }
-
 
 void setSchedule(Request &req, Response &res) {
   // Limpar a lista antes de adicionar novos itens
@@ -384,6 +387,13 @@ void setSchedule(Request &req, Response &res) {
 
   // Ordenar a lista
   std::sort(scheduleListESP32.begin(), scheduleListESP32.end());
+
+  // Verificar se a lista está vazia
+  if (scheduleListESP32.empty()) {
+    // Se a lista de horários estiver vazia, retorne uma resposta vazia
+    res.end();
+    return;
+  }
 
   for (const auto &time : scheduleListESP32) {
     res.print(time + "\n");
@@ -412,6 +422,13 @@ void getChartData(Request &req, Response &res) {
   // Serial.print("o que tá indo pra lá: ");
   Serial.println(jsonString);
 
+  if (jsonString.length() == 0 || jsonString.isEmpty() ) {
+    // Se jsonString está vazio, retorne uma resposta vazia
+    Serial.println("ENTROU?");
+    res.end();
+    return;
+  }
+
   res.print(jsonString);
 }
 
@@ -427,18 +444,16 @@ int readMoistureSensor() {
   int sensorValue = analogRead(AOUT_PIN);
 
   // Intervalo original do sensor
-  int sensorMin = 3120;
-  int sensorMax = 4095;
-
-  // Intervalo desejado (porcentagem)
-  int targetMin = 100;  // Invertido: agora representa 100% quando molhado
-  int targetMax = 0;    // Invertido: agora representa 0% quando seco
+  int sensorMin = 1017; // Totalmente úmido
+  int sensorMax = 2889; // Totalmente seco
 
   // Converta o valor lido para um intervalo de 0 a 100
-  int moisture = map(sensorValue, sensorMin, sensorMax, targetMin, targetMax);
+  int moisture = map(sensorValue, sensorMin, sensorMax, 100, 0);
 
-  // return moisture;
-  return sensorValue;
+  // Garanta que os valores não ultrapassem os limites
+  moisture = constrain(moisture, 0, 100);
+
+  return moisture;
 }
 
 void readMode(Request &req, Response &res) {
@@ -490,5 +505,6 @@ void connectToWiFi() {
     Serial.println(WiFi.localIP());
   } else {
     Serial.println("\nFalha na conexão ao WiFi. Verifique suas credenciais.");
+    WiFi.disconnect(); // Desconectar para liberar recursos
   }
 }
